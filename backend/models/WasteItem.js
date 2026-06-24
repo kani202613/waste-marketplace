@@ -1,51 +1,53 @@
 // backend/models/WasteItem.js
-const db = require('../config/db');
+const mongoose = require('mongoose');
 
-const WasteItem = {
-  create: (data, callback) => {
-    const {
-      seller_id,
-      title,
-      category,
-      approx_weight,
-      base_price,
-      image_url,
-      address,
-      city,
-      pincode
-    } = data;
-
-    const sql = `
-      INSERT INTO waste_items
-      (seller_id, title, category, approx_weight, base_price, image_url, address, city, pincode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    db.query(
-      sql,
-      [seller_id, title, category, approx_weight, base_price, image_url, address, city, pincode],
-      (err, result) => {
-        if (err) return callback(err);
-        callback(null, { id: result.insertId, ...data, status: 'OPEN' });
-      }
-    );
+const WasteItemSchema = new mongoose.Schema({
+  seller_id: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
   },
-
-  findBySeller: (sellerId, callback) => {
-    const sql = `SELECT * FROM waste_items WHERE seller_id = ? ORDER BY created_at DESC`;
-    db.query(sql, [sellerId], (err, results) => {
-      if (err) return callback(err);
-      callback(null, results);
-    });
+  title: { 
+    type: String, 
+    required: true 
   },
-
-  findAllOpen: (callback) => {
-    const sql = `SELECT * FROM waste_items WHERE status = 'OPEN' ORDER BY created_at DESC`;
-    db.query(sql, (err, results) => {
-      if (err) return callback(err);
-      callback(null, results);
-    });
+  category: { 
+    type: String, 
+    required: true 
+  },
+  approx_weight: { 
+    type: Number, 
+    default: 0 
+  },
+  base_price: { 
+    type: Number, 
+    default: 0 
+  },
+  image_url: { 
+    type: String, 
+    default: null 
+  },
+  address: { 
+    type: String, 
+    required: true 
+  },
+  city: { 
+    type: String, 
+    required: true 
+  },
+  pincode: { 
+    type: String, 
+    required: true 
+  },
+  status: { 
+    type: String, 
+    enum: ['OPEN', 'ACCEPTED', 'COMPLETED', 'CLOSED'], 
+    default: 'OPEN' 
+  },
+  created_at: { 
+    type: Date, 
+    default: Date.now 
   }
-};
+});
 
-module.exports = WasteItem;
+module.exports = mongoose.model('WasteItem', WasteItemSchema);

@@ -1,30 +1,45 @@
 // backend/models/User.js
-const db = require('../config/db');
+const mongoose = require('mongoose');
 
-const User = {
-  findByEmail: (email, callback) => {
-    const sql = 'SELECT * FROM users WHERE email = ? LIMIT 1';
-    db.query(sql, [email], (err, results) => {
-      if (err) return callback(err);
-      callback(null, results[0]); // undefined if not found
-    });
+const UserSchema = new mongoose.Schema({
+  name: { 
+    type: String, 
+    required: true 
   },
-
-  create: (userData, callback) => {
-    const { name, email, passwordHash, role, phone, address, city, pincode } = userData;
-    const sql = `
-      INSERT INTO users (name, email, password, role, phone, address, city, pincode)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    db.query(
-      sql,
-      [name, email, passwordHash, role, phone, address, city, pincode],
-      (err, result) => {
-        if (err) return callback(err);
-        callback(null, { id: result.insertId, ...userData });
-      }
-    );
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true 
+  },
+  password: { 
+    type: String, 
+    required: true 
+  },
+  role: { 
+    type: String, 
+    enum: ['seller', 'collector', 'buyer'], 
+    default: 'seller' 
+  },
+  phone: { 
+    type: String, 
+    default: null 
+  },
+  address: { 
+    type: String, 
+    default: null 
+  },
+  city: { 
+    type: String, 
+    default: null 
+  },
+  pincode: { 
+    type: String, 
+    default: null 
+  },
+  created_at: { 
+    type: Date, 
+    default: Date.now 
   }
-};
+});
 
-module.exports = User;
+module.exports = mongoose.model('User', UserSchema);

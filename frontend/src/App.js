@@ -8,7 +8,7 @@ import BuyerDashboard from "./pages/BuyerDashboard";
 import { setAuthToken } from "./services/api";
 
 // small wrapper for protected routes
-const ProtectedRoute = ({ children, allowedRole }) => {
+const ProtectedRoute = ({ children, allowedRoles }) => {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
 
@@ -16,7 +16,7 @@ const ProtectedRoute = ({ children, allowedRole }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRole && role !== allowedRole) {
+  if (allowedRoles && !allowedRoles.includes(role)) {
     // wrong role – send back to login or maybe a 403 page
     return <Navigate to="/login" replace />;
   }
@@ -41,7 +41,7 @@ function App() {
         <Route
           path="/seller"
           element={
-            <ProtectedRoute allowedRole="seller">
+            <ProtectedRoute allowedRoles={["seller"]}>
               <SellerDashboard />
             </ProtectedRoute>
           }
@@ -51,7 +51,7 @@ function App() {
         <Route
           path="/buyer"
           element={
-            <ProtectedRoute allowedRole="buyer">
+            <ProtectedRoute allowedRoles={["buyer", "collector"]}>
               <BuyerDashboard />
             </ProtectedRoute>
           }

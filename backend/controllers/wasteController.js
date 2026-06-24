@@ -1,103 +1,106 @@
 // backend/controllers/wasteController.js
-const db = require("../config/db");
+const WasteItem = require("../models/WasteItem");
 
 // 1️⃣ SELLER: Add a new waste item
-exports.createWasteItem = (req, res) => {
-  // If you are using authMiddleware, req.user.id will be set
-  // For safety, fallback to 4 (test seller) if not present
-  const sellerId = req.user?.id || 4;
-
-  const {
-    title,
-    category,
-    weight,      // from frontend form
-    basePrice,
-    address,
-    city,
-    pincode,
-  } = req.body;
-
-  if (!title || !category || !address || !city || !pincode) {
-    return res.status(400).json({ message: "Missing required fields" });
-  }
-
-  const sql = `
-    INSERT INTO waste_items 
-      (title, category, approx_weight, base_price, address, city, pincode, seller_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  db.query(
-    sql,
-    [title, category, weight, basePrice, address, city, pincode, sellerId],
-    (err, result) => {
-      if (err) {
-        console.error("DB insert error:", err);
-        return res.status(500).json({ message: "Failed to create item" });
-      }
-
-      return res.status(201).json({
-        message: "Waste item created",
-        itemId: result.insertId,
-      });
+exports.createWasteItem = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
     }
-  );
-};
+    const sellerId = req.user.id;
 
-// 2️⃣ BUYER: Get ALL items with seller info
-exports.getAllWasteItems = (req, res) => {
-  const sql = `
-    SELECT 
-      w.id,
-      w.title,
-      w.category,
-      w.approx_weight,
-      w.base_price,
-      w.address,
-      w.city,
-      w.pincode,
-      w.seller_id,
-      u.name AS sellerName,
-      u.email AS sellerEmail
-    FROM waste_items w
-    JOIN users u ON w.seller_id = u.id
-  `;
-
-  db.query(sql, (err, rows) => {
-    if (err) {
-      console.error("DB fetch error (all items):", err);
-      return res.status(500).json({ message: "Failed to load items" });
-    }
-
-    return res.json(rows);
-  });
-};
-
-// 3️⃣ SELLER: Get ONLY my items
-exports.getMyWasteItems = (req, res) => {
-  const sellerId = req.user?.id || 4; // fallback for testing
-
-  const sql = `
-    SELECT 
-      id,
+    const {
       title,
       category,
-      approx_weight,
-      base_price,
+      weight,      // from frontend form
+      basePrice,
       address,
       city,
       pincode,
-      seller_id
-    FROM waste_items
-    WHERE seller_id = ?
-  `;
+    } = req.body;
 
-  db.query(sql, [sellerId], (err, rows) => {
-    if (err) {
-      console.error("DB fetch error (my items):", err);
-      return res.status(500).json({ message: "Failed to load your items" });
+    if (!title || !category || !address || !city || !pincode) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    return res.json(rows);
-  });
+    const newItem = new WasteItem({
+      seller_id: sellerId,
+      title,
+      category,
+      approx_weight: Number(weight) || 0,
+      base_price: Number(basePrice) || 0,
+      address,
+      city,
+      pincode
+    });
+
+    const savedItem = await newItem.save();
+
+    return res.status(201).json({
+      message: "Waste item created",
+      itemId: savedItem._id,
+    });
+  } catch (error) {
+    console.error("Create waste item error:", error);
+    return res.status(500).json({ message: "Failed to create item", error });
+  }
+};
+
+// 2️⃣ BUYER: Get ALL open items with seller info
+exports.getAllWasteItems = async (req, res) => {
+  try {
+    const items = await WasteItem.find({ status: 'OPEN' })
+      .populate('seller_id', 'name email')
+      .sort({ created_at: -1 });
+
+    const formatted = items.map(item => ({
+      id: item._id,
+      title: item.title,
+      category: item.category,
+      approx_weight: item.approx_weight,
+      base_price: item.base_price,
+      address: item.address,
+      city: item.city,
+      pincode: item.pincode,
+      seller_id: item.seller_id?._id,
+      sellerName: item.seller_id?.name || "Unknown Seller",
+      sellerEmail: item.seller_id?.email || ""
+    }));
+
+    return res.json(formatted);
+  } catch (error) {
+    console.error("Get all items error:", error);
+    return res.status(500).json({ message: "Failed to load items", error });
+  }
+};
+
+// 3️⃣ SELLER: Get ONLY my items
+exports.getMyWasteItems = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
+    }
+    const sellerId = req.user.id;
+
+    const items = await WasteItem.find({ seller_id: sellerId })
+      .sort({ created_at: -1 });
+
+    const formatted = items.map(item => ({
+      id: item._id,
+      title: item.title,
+      category: item.category,
+      approx_weight: item.approx_weight,
+      base_price: item.base_price,
+      address: item.address,
+      city: item.city,
+      pincode: item.pincode,
+      status: item.status,
+      seller_id: item.seller_id
+    }));
+
+    return res.json(formatted);
+  } catch (error) {
+    console.error("Get my items error:", error);
+    return res.status(500).json({ message: "Failed to load your items", error });
+  }
 };

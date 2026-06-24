@@ -7,6 +7,7 @@ function SellerDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [items, setItems] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -19,7 +20,7 @@ function SellerDashboard() {
     pincode: "",
   });
 
-  // Load user + items
+  // Load user + items + incoming requests
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -31,6 +32,7 @@ function SellerDashboard() {
 
     setUser(JSON.parse(userStr));
     fetchMyItems();
+    fetchIncomingRequests();
   }, []);
 
   // Fetch this seller's items
@@ -40,6 +42,30 @@ function SellerDashboard() {
       setItems(res.data || []); // backend returns array
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Fetch requests for this seller's items
+  const fetchIncomingRequests = async () => {
+    try {
+      const res = await api.get("/requests/seller");
+      setRequests(res.data || []);
+    } catch (err) {
+      console.error("Error fetching incoming requests:", err);
+    }
+  };
+
+  // Update request status (Accept / Reject / Complete)
+  const handleUpdateRequestStatus = async (requestId, status) => {
+    setMessage("Updating status...");
+    try {
+      const res = await api.put(`/requests/${requestId}`, { status });
+      setMessage(res.data.message || "Updated successfully.");
+      fetchIncomingRequests();
+      fetchMyItems();
+    } catch (err) {
+      console.error("Error updating request:", err);
+      setMessage(err.response?.data?.message || "Failed to update request status.");
     }
   };
 
@@ -252,50 +278,182 @@ function SellerDashboard() {
           </form>
         </div>
 
-        {/* RIGHT - LIST */}
+        {/* RIGHT - LIST & REQUESTS */}
         <div
           style={{
             flex: 1,
-            background: "white",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "24px",
           }}
         >
-          <h3>My Waste Items</h3>
-
-          {items.length === 0 ? (
-            <p style={{ marginTop: "8px" }}>No items yet.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  style={{
-                    borderBottom: "1px solid #e5e7eb",
-                    padding: "8px 0",
-                  }}
-                >
-                  <strong>{item.title}</strong> ({item.category})<br />
-                  {item.approx_weight} kg • ₹{item.base_price} • {item.city}
-                  <br />
-                  <span
+          {/* INCOMING REQUESTS */}
+          <div
+            style={{
+              background: "white",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            <h3>Incoming Requests</h3>
+            {requests.length === 0 ? (
+              <p style={{ marginTop: "8px", color: "#6b7280" }}>No incoming requests yet.</p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
+                {requests.map((req) => (
+                  <li
+                    key={req.id}
                     style={{
-                      fontSize: "12px",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      background:
-                        item.status === "OPEN"
-                          ? "#e0f2fe"
-                          : "#fef9c3",
+                      borderBottom: "1px solid #e5e7eb",
+                      padding: "12px 0",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
                     }}
                   >
-                    {item.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <strong>{req.title}</strong>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          background:
+                            req.status === "PENDING"
+                              ? "#fef3c7"
+                              : req.status === "ACCEPTED"
+                              ? "#dcfce7"
+                              : req.status === "COMPLETED"
+                              ? "#e0f2fe"
+                              : "#fee2e2",
+                          color:
+                            req.status === "PENDING"
+                              ? "#92400e"
+                              : req.status === "ACCEPTED"
+                              ? "#166534"
+                              : req.status === "COMPLETED"
+                              ? "#075985"
+                              : "#991b1b",
+                        }}
+                      >
+                        {req.status}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                      <span>Weight: {req.approx_weight} kg • Price: ₹{req.base_price}</span>
+                      <br />
+                      <span>Buyer: {req.buyerName} ({req.buyerEmail})</span>
+                      {req.buyerPhone && <span> • Phone: {req.buyerPhone}</span>}
+                    </div>
+                    {req.status === "PENDING" && (
+                      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                        <button
+                          onClick={() => handleUpdateRequestStatus(req.id, "ACCEPTED")}
+                          style={{
+                            padding: "4px 10px",
+                            background: "#16a34a",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleUpdateRequestStatus(req.id, "REJECTED")}
+                          style={{
+                            padding: "4px 10px",
+                            background: "#ef4444",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {req.status === "ACCEPTED" && (
+                      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
+                        <button
+                          onClick={() => handleUpdateRequestStatus(req.id, "COMPLETED")}
+                          style={{
+                            padding: "4px 10px",
+                            background: "#2563eb",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                          }}
+                        >
+                          Mark Completed / Picked Up
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* MY WASTE ITEMS */}
+          <div
+            style={{
+              background: "white",
+              padding: "16px",
+              borderRadius: "8px",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+            }}
+          >
+            <h3>My Waste Items</h3>
+
+            {items.length === 0 ? (
+              <p style={{ marginTop: "8px" }}>No items yet.</p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
+                {items.map((item) => (
+                  <li
+                    key={item.id}
+                    style={{
+                      borderBottom: "1px solid #e5e7eb",
+                      padding: "8px 0",
+                    }}
+                  >
+                    <strong>{item.title}</strong> ({item.category})<br />
+                    {item.approx_weight} kg • ₹{item.base_price} • {item.city}
+                    <br />
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        background:
+                          item.status === "OPEN"
+                            ? "#e0f2fe"
+                            : item.status === "ACCEPTED"
+                            ? "#dcfce7"
+                            : "#fee2e2",
+                        color:
+                          item.status === "OPEN"
+                            ? "#075985"
+                            : item.status === "ACCEPTED"
+                            ? "#166534"
+                            : "#991b1b",
+                      }}
+                    >
+                      {item.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </main>
     </div>

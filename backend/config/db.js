@@ -1,19 +1,17 @@
 // backend/config/db.js
-const mysql = require('mysql2');
+const mongoose = require('mongoose');
 
-const connection = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
-});
+const mongoURI = process.env.MONGO_URI;
 
-connection.connect((err) => {
-  if (err) {
-    console.error('❌ Error connecting to MySQL:', err.message);
-  } else {
-    console.log('✅ Connected to MySQL database');
-  }
-});
+if (!mongoURI) {
+  console.error("❌ Error: MONGO_URI is not defined in the environment variables.");
+  process.exit(1);
+}
 
-module.exports = connection;
+mongoose.connect(mongoURI)
+  .then(() => console.log('✅ Connected to MongoDB database successfully'))
+  .catch((err) => {
+    console.error('❌ Error connecting to MongoDB:', err.message);
+  });
+
+module.exports = mongoose.connection;

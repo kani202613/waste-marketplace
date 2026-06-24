@@ -12,4 +12,7 @@ router.get("/my", authMiddleware, requestController.getMyRequestsAsBuyer);
 // Seller sees requests for their items
 router.get("/seller", authMiddleware, requestController.getMyRequestsAsSeller);
 
+// Update request status
+router.put("/:id", authMiddleware, requestController.updateRequestStatus);
+
 module.exports = router;
