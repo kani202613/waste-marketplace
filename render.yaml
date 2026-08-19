@@ -1,0 +1,16 @@
+services:
+  # Single Web Service deployment (Node.js Express + Static React Frontend)
+  - type: web
+    name: waste-marketplace
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production

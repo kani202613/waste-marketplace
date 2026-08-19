@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const express = require('express');
@@ -9,13 +10,14 @@ const db = require('./config/db');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+// Configure CORS
+const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(s => s.trim()) : '*';
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 
-// Home route
-app.get("/", (req, res) => {
-  res.send("Waste Market Backend Running 🚀");
-});
+app.use(express.json());
 
 // Ping test route
 app.get('/api/ping', (req, res) => {
@@ -30,10 +32,29 @@ app.use('/api/auth', authRoutes);
 const wasteRoutes = require('./routes/wasteRoutes');
 app.use('/api/waste', wasteRoutes);
 
+// Request routes
 const requestRoutes = require("./routes/requestRoutes");
 app.use("/api/requests", requestRoutes);
 
-// Optional error handler
+// Serve frontend build static files if present (Single-service production deployment)
+const frontendBuildPath = path.join(__dirname, '../frontend/build');
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ message: "API route not found" });
+    }
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
+  });
+} else {
+  // Home route fallback when build directory is not generated yet
+  app.get('/', (req, res) => {
+    res.send("Waste Market Backend Running 🚀");
+  });
+}
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err);
   res.status(500).json({ message: "Internal Server Error" });
@@ -42,5 +63,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on http://localhost:${PORT}`);
+  console.log(`✅ Server is running on port ${PORT}`);
 });
