@@ -33,7 +33,7 @@ function SellerDashboard() {
     setUser(JSON.parse(userStr));
     fetchMyItems();
     fetchIncomingRequests();
-  }, []);
+  }, [navigate]);
 
   // Fetch this seller's items
   const fetchMyItems = async () => {
