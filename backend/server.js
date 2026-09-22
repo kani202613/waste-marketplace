@@ -37,7 +37,10 @@ const requestRoutes = require("./routes/requestRoutes");
 app.use("/api/requests", requestRoutes);
 
 // Serve frontend build static files if present (Single-service production deployment)
-const frontendBuildPath = path.join(__dirname, '../frontend/build');
+const frontendBuildPath = fs.existsSync(path.join(__dirname, '../frontend/build'))
+  ? path.join(__dirname, '../frontend/build')
+  : path.resolve(process.cwd(), 'frontend/build');
+
 if (fs.existsSync(frontendBuildPath)) {
   app.use(express.static(frontendBuildPath));
 
