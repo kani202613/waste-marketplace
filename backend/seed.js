@@ -1,21 +1,13 @@
 // backend/seed.js
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const dbPromise = require('./config/db');
 const User = require('./models/User');
 const WasteItem = require('./models/WasteItem');
-const Request = require('./models/Request');
+const RequestModel = require('./models/Request');
 
-const mongoURI = process.env.MONGO_URI;
-
-if (!mongoURI) {
-  console.error("❌ Error: MONGO_URI is not defined in backend/.env file.");
-  process.exit(1);
-}
-
-// REALISTIC SEED DATA GENERATORS
 const cities = [
   { city: "Chennai", pincodes: ["600032", "600096", "600028", "600040", "600100"] },
   { city: "Coimbatore", pincodes: ["641004", "641012", "641006", "641037"] },
@@ -61,7 +53,7 @@ const plasticTitles = [
 ];
 
 const metalTitles = [
-  "Heavy Heavy Copper Wire & Cable Scrap (Millberry)",
+  "Heavy Copper Wire & Cable Scrap (Millberry)",
   "Scrap Aluminum Sheet & Extrusion Trimmings",
   "Brass Valves, Fittings & Plumbing Scrap",
   "Industrial Stainless Steel 304/316 Scrap",
@@ -86,37 +78,32 @@ function getRandomInt(min, max) {
 
 async function seedDatabase() {
   try {
-    console.log("⏳ Connecting to MongoDB Atlas...");
-    await mongoose.connect(mongoURI);
-    console.log("✅ Connected to MongoDB Atlas successfully.");
+    console.log("⏳ Initializing SQLite Database...");
+    const db = await dbPromise;
 
-    // Clear existing data
-    console.log("🧹 Clearing existing collection data...");
-    await User.deleteMany({});
-    await WasteItem.deleteMany({});
-    await Request.deleteMany({});
+    console.log("🧹 Clearing existing table data...");
+    await db.exec(`
+      DELETE FROM requests;
+      DELETE FROM waste_items;
+      DELETE FROM users;
+      DELETE FROM sqlite_sequence;
+    `);
 
     // Create Sample Users
     console.log("👤 Creating Demo User Accounts...");
     const hashedPassword = await bcrypt.hash("Password@123", 10);
 
-    const usersToInsert = [
-      { name: "John Seller", email: "john@seller.com", password: hashedPassword, role: "seller", phone: "+91 9876543210", city: "Chennai", address: "Guindy Industrial Estate", pincode: "600032" },
-      { name: "Kani Scrap Traders", email: "kani@scrap.com", password: hashedPassword, role: "seller", phone: "+91 9812345678", city: "Coimbatore", address: "Peelamedu", pincode: "641004" },
-      { name: "Green Recyclers Pvt Ltd", email: "green@recyclers.com", password: hashedPassword, role: "seller", phone: "+91 9765432109", city: "Salem", address: "Five Roads Area", pincode: "636004" },
-      { name: "Alex Collector", email: "alex@collector.com", password: hashedPassword, role: "collector", phone: "+91 9123456789", city: "Chennai", address: "Velachery Main Rd", pincode: "600042" },
-      { name: "Eco Recycling Hub", email: "eco@collector.com", password: hashedPassword, role: "buyer", phone: "+91 9444455555", city: "Bengaluru", address: "Peenya Industrial Area", pincode: "560058" }
-    ];
+    const seller1 = await User.create({ name: "John Seller", email: "john@seller.com", password: hashedPassword, role: "seller", phone: "+91 9876543210", city: "Chennai", address: "Guindy Industrial Estate", pincode: "600032" });
+    const seller2 = await User.create({ name: "Kani Scrap Traders", email: "kani@scrap.com", password: hashedPassword, role: "seller", phone: "+91 9812345678", city: "Coimbatore", address: "Peelamedu", pincode: "641004" });
+    const seller3 = await User.create({ name: "Green Recyclers Pvt Ltd", email: "green@recyclers.com", password: hashedPassword, role: "seller", phone: "+91 9765432109", city: "Salem", address: "Five Roads Area", pincode: "636004" });
+    const collector1 = await User.create({ name: "Alex Collector", email: "alex@collector.com", password: hashedPassword, role: "collector", phone: "+91 9123456789", city: "Chennai", address: "Velachery Main Rd", pincode: "600042" });
+    const buyer1 = await User.create({ name: "Eco Recycling Hub", email: "eco@collector.com", password: hashedPassword, role: "buyer", phone: "+91 9444455555", city: "Bengaluru", address: "Peenya Industrial Area", pincode: "560058" });
 
-    const createdUsers = await User.insertMany(usersToInsert);
-    console.log(`✅ Created ${createdUsers.length} user accounts.`);
+    const sellerUsers = [seller1, seller2, seller3];
 
-    const sellerUsers = createdUsers.filter(u => u.role === "seller");
-    const buyerUsers = createdUsers.filter(u => u.role === "collector" || u.role === "buyer");
-
-    // Generate 1,000 Waste Items
     console.log("📦 Generating 1,000 realistic e-waste and recycling listings...");
-    const wasteItemsToInsert = [];
+
+    await db.exec('BEGIN TRANSACTION;');
 
     for (let i = 1; i <= 1000; i++) {
       let category = "E-waste";
@@ -124,19 +111,15 @@ async function seedDatabase() {
       let rand = Math.random();
 
       if (rand < 0.55) {
-        // 55% E-waste items (550+ items)
         category = "E-waste";
         titlePool = ewasteTitles;
       } else if (rand < 0.75) {
-        // 20% Metal
         category = "Metal";
         titlePool = metalTitles;
       } else if (rand < 0.90) {
-        // 15% Plastic
         category = "Plastic";
         titlePool = plasticTitles;
       } else {
-        // 10% Paper
         category = "Paper";
         titlePool = paperTitles;
       }
@@ -150,57 +133,32 @@ async function seedDatabase() {
       let approx_weight = category === "E-waste" ? getRandomInt(15, 850) : category === "Metal" ? getRandomInt(50, 3500) : getRandomInt(40, 1500);
       let base_price = category === "E-waste" ? getRandomInt(1500, 75000) : category === "Metal" ? getRandomInt(5000, 120000) : getRandomInt(800, 18000);
 
-      const daysAgo = getRandomInt(0, 60);
-      const createdAt = new Date(Date.now() - daysAgo * 24 * 3600 * 1000);
-
-      wasteItemsToInsert.push({
-        seller_id: seller._id,
-        title,
-        category,
-        approx_weight,
-        base_price,
-        address: `${getRandomInt(1, 150)} Industrial Sector ${getRandomElement(["A", "B", "C", "Zone 2"])}`,
-        city: cityObj.city,
-        pincode,
-        status: "OPEN",
-        created_at: createdAt
-      });
+      await db.run(
+        `INSERT INTO waste_items (seller_id, title, category, approx_weight, base_price, address, city, pincode, status) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
+        [seller.id, title, category, approx_weight, base_price, `${getRandomInt(1, 150)} Industrial Sector ${getRandomElement(["A", "B", "C"])}`, cityObj.city, pincode]
+      );
     }
 
-    const createdItems = await WasteItem.insertMany(wasteItemsToInsert);
-    console.log(`✅ Successfully seeded ${createdItems.length} waste listings in MongoDB Atlas.`);
+    await db.exec('COMMIT;');
+
+    console.log("✅ Successfully seeded 1,000 waste listings into SQLite (database.sqlite).");
 
     // Seed Sample Pick-Up Requests
     console.log("🚚 Seeding sample pick-up requests...");
-    const sampleRequests = [
-      {
-        buyer_id: buyerUsers[0]._id,
-        waste_item_id: createdItems[0]._id,
-        status: "PENDING",
-        created_at: new Date()
-      },
-      {
-        buyer_id: buyerUsers[1]._id,
-        waste_item_id: createdItems[1]._id,
-        status: "ACCEPTED",
-        created_at: new Date(Date.now() - 86400000)
-      },
-      {
-        buyer_id: buyerUsers[0]._id,
-        waste_item_id: createdItems[2]._id,
-        status: "COMPLETED",
-        created_at: new Date(Date.now() - 172800000)
-      }
-    ];
+    const sampleItem1 = await db.get('SELECT id FROM waste_items LIMIT 1');
+    const sampleItem2 = await db.get('SELECT id FROM waste_items LIMIT 1 OFFSET 1');
 
-    // Update waste items status for accepted / completed
-    await WasteItem.findByIdAndUpdate(createdItems[1]._id, { status: "ACCEPTED" });
-    await WasteItem.findByIdAndUpdate(createdItems[2]._id, { status: "CLOSED" });
+    if (sampleItem1) {
+      await RequestModel.create(collector1.id, sampleItem1.id);
+    }
+    if (sampleItem2) {
+      const req2 = await RequestModel.create(buyer1.id, sampleItem2.id);
+      await RequestModel.updateStatus(req2.id, "ACCEPTED");
+      await WasteItem.updateStatus(sampleItem2.id, "ACCEPTED");
+    }
 
-    await Request.insertMany(sampleRequests);
-    console.log("✅ Seeded sample requests.");
-
-    console.log("\n🎉 SEED COMPLETE! Database populated with 1,000+ realistic waste listings.");
+    console.log("\n🎉 SEED COMPLETE! SQLite database populated with 1,000+ realistic waste listings.");
     console.log("-------------------------------------------------------");
     console.log("Seller Login:   john@seller.com / Password@123");
     console.log("Buyer Login:    alex@collector.com / Password@123");

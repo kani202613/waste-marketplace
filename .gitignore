@@ -16,3 +16,8 @@ Thumbs.db
 
 # Build artifacts
 frontend/build/
+
+# Database files
+*.sqlite
+*.db
+backend/database.sqlite

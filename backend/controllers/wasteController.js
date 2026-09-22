@@ -23,7 +23,7 @@ exports.createWasteItem = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    const newItem = new WasteItem({
+    const created = await WasteItem.create({
       seller_id: sellerId,
       title,
       category,
@@ -34,15 +34,13 @@ exports.createWasteItem = async (req, res) => {
       pincode
     });
 
-    const savedItem = await newItem.save();
-
     return res.status(201).json({
       message: "Waste item created",
-      itemId: savedItem._id,
+      itemId: created.id,
     });
   } catch (error) {
     console.error("Create waste item error:", error);
-    return res.status(500).json({ message: "Failed to create item", error });
+    return res.status(500).json({ message: "Failed to create item", error: error.message });
   }
 };
 
@@ -50,33 +48,17 @@ exports.createWasteItem = async (req, res) => {
 exports.getAllWasteItems = async (req, res) => {
   try {
     const { category, city, search, limit } = req.query;
-    let filter = { status: 'OPEN' };
-
-    if (category && category !== 'All') {
-      filter.category = category;
-    }
-
-    if (city && city !== 'All') {
-      filter.city = city;
-    }
-
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-        { city: { $regex: search, $options: 'i' } }
-      ];
-    }
-
     const queryLimit = parseInt(limit) || 1000;
 
-    const items = await WasteItem.find(filter)
-      .populate('seller_id', 'name email')
-      .sort({ created_at: -1 })
-      .limit(queryLimit);
+    const items = await WasteItem.findAllOpen({
+      category,
+      city,
+      search,
+      limit: queryLimit
+    });
 
     const formatted = items.map(item => ({
-      id: item._id,
+      id: item.id,
       title: item.title,
       category: item.category,
       approx_weight: item.approx_weight,
@@ -84,15 +66,15 @@ exports.getAllWasteItems = async (req, res) => {
       address: item.address,
       city: item.city,
       pincode: item.pincode,
-      seller_id: item.seller_id?._id,
-      sellerName: item.seller_id?.name || "Unknown Seller",
-      sellerEmail: item.seller_id?.email || ""
+      seller_id: item.seller_id,
+      sellerName: item.sellerName || "Unknown Seller",
+      sellerEmail: item.sellerEmail || ""
     }));
 
     return res.json(formatted);
   } catch (error) {
     console.error("Get all items error:", error);
-    return res.status(500).json({ message: "Failed to load items", error });
+    return res.status(500).json({ message: "Failed to load items", error: error.message });
   }
 };
 
@@ -104,11 +86,10 @@ exports.getMyWasteItems = async (req, res) => {
     }
     const sellerId = req.user.id;
 
-    const items = await WasteItem.find({ seller_id: sellerId })
-      .sort({ created_at: -1 });
+    const items = await WasteItem.findBySeller(sellerId);
 
     const formatted = items.map(item => ({
-      id: item._id,
+      id: item.id,
       title: item.title,
       category: item.category,
       approx_weight: item.approx_weight,
@@ -123,6 +104,6 @@ exports.getMyWasteItems = async (req, res) => {
     return res.json(formatted);
   } catch (error) {
     console.error("Get my items error:", error);
-    return res.status(500).json({ message: "Failed to load your items", error });
+    return res.status(500).json({ message: "Failed to load your items", error: error.message });
   }
 };

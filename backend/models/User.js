@@ -1,45 +1,31 @@
 // backend/models/User.js
-const mongoose = require('mongoose');
+const dbPromise = require('../config/db');
 
-const UserSchema = new mongoose.Schema({
-  name: { 
-    type: String, 
-    required: true 
+const User = {
+  findByEmail: async (email) => {
+    const db = await dbPromise;
+    return await db.get('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
   },
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true 
+
+  findById: async (id) => {
+    const db = await dbPromise;
+    return await db.get('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
   },
-  password: { 
-    type: String, 
-    required: true 
+
+  create: async (userData) => {
+    const db = await dbPromise;
+    const { name, email, password, role, phone, address, city, pincode } = userData;
+    const result = await db.run(
+      `INSERT INTO users (name, email, password, role, phone, address, city, pincode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, email, password, role || 'seller', phone || null, address || null, city || null, pincode || null]
+    );
+    return { id: result.lastID, name, email, role: role || 'seller' };
   },
-  role: { 
-    type: String, 
-    enum: ['seller', 'collector', 'buyer'], 
-    default: 'seller' 
-  },
-  phone: { 
-    type: String, 
-    default: null 
-  },
-  address: { 
-    type: String, 
-    default: null 
-  },
-  city: { 
-    type: String, 
-    default: null 
-  },
-  pincode: { 
-    type: String, 
-    default: null 
-  },
-  created_at: { 
-    type: Date, 
-    default: Date.now 
+
+  findAll: async () => {
+    const db = await dbPromise;
+    return await db.all('SELECT id, name, email, role, phone, city, address, pincode FROM users');
   }
-});
+};
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = User;
