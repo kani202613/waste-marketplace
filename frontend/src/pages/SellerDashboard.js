@@ -1,7 +1,7 @@
 // src/pages/SellerDashboard.js
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { setAuthToken } from "../services/api";
 
 function SellerDashboard() {
   const navigate = useNavigate();
@@ -9,10 +9,11 @@ function SellerDashboard() {
   const [items, setItems] = useState([]);
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
-    category: "Plastic",
+    category: "E-waste",
     approx_weight: "",
     base_price: "",
     address: "",
@@ -35,17 +36,15 @@ function SellerDashboard() {
     fetchIncomingRequests();
   }, [navigate]);
 
-  // Fetch this seller's items
   const fetchMyItems = async () => {
     try {
       const res = await api.get("/waste/my");
-      setItems(res.data || []); // backend returns array
+      setItems(res.data || []);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching my items:", err);
     }
   };
 
-  // Fetch requests for this seller's items
   const fetchIncomingRequests = async () => {
     try {
       const res = await api.get("/requests/seller");
@@ -55,21 +54,10 @@ function SellerDashboard() {
     }
   };
 
-  // Update request status (Accept / Reject / Complete)
-  const handleUpdateRequestStatus = async (requestId, status) => {
-    setMessage("Updating status...");
-    try {
-      const res = await api.put(`/requests/${requestId}`, { status });
-      setMessage(res.data.message || "Updated successfully.");
-      fetchIncomingRequests();
-      fetchMyItems();
-    } catch (err) {
-      console.error("Error updating request:", err);
-      setMessage(err.response?.data?.message || "Failed to update request status.");
-    }
+  const handleCategorySelect = (category) => {
+    setForm({ ...form, category });
   };
 
-  // Handle form input
   const handleChange = (e) => {
     setForm({
       ...form,
@@ -77,30 +65,29 @@ function SellerDashboard() {
     });
   };
 
-  // Add new item
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("Creating item...");
+    setMessage("Creating waste item...");
+    setLoading(true);
 
     try {
       const payload = {
         title: form.title,
         category: form.category,
-        approx_weight: Number(form.approx_weight),
-        base_price: Number(form.base_price),
+        weight: Number(form.approx_weight),
+        basePrice: Number(form.base_price),
         address: form.address,
         city: form.city,
         pincode: form.pincode,
       };
 
       const res = await api.post("/waste", payload);
+      setMessage(res.data.message || "Item listed successfully!");
+      setTimeout(() => setMessage(""), 3000);
 
-      setMessage(res.data.message || "Created!");
-
-      // Reset form
       setForm({
         title: "",
-        category: "Plastic",
+        category: "E-waste",
         approx_weight: "",
         base_price: "",
         address: "",
@@ -108,353 +95,367 @@ function SellerDashboard() {
         pincode: "",
       });
 
-      fetchMyItems(); // refresh list
+      fetchMyItems();
     } catch (err) {
       console.error(err);
-      if (err.response?.data?.message) {
-        setMessage(err.response.data.message);
-      } else {
-        setMessage("Error creating item.");
-      }
+      setMessage(err.response?.data?.message || "Error creating waste item.");
+      setTimeout(() => setMessage(""), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateRequestStatus = async (requestId, status) => {
+    setMessage("Updating status...");
+    try {
+      const res = await api.put(`/requests/${requestId}`, { status });
+      setMessage(res.data.message || "Status updated.");
+      setTimeout(() => setMessage(""), 3000);
+      fetchIncomingRequests();
+      fetchMyItems();
+    } catch (err) {
+      console.error("Error updating request:", err);
+      setMessage(err.response?.data?.message || "Failed to update status.");
+      setTimeout(() => setMessage(""), 3000);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("role");
+    setAuthToken(null);
     navigate("/login");
   };
 
+  const pendingRequestsCount = requests.filter(r => r.status === "PENDING").length;
+  const acceptedRequestsCount = requests.filter(r => r.status === "ACCEPTED" || r.status === "COMPLETED").length;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f3f4f6" }}>
-      {/* HEADER */}
-      <header
-        style={{
-          background: "#111827",
-          color: "white",
-          padding: "12px 24px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h2>Seller Dashboard</h2>
-        <div>
-          {user && <span style={{ marginRight: "12px" }}>Hi, {user.name}</span>}
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: "6px 12px",
-              background: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
+    <div style={{ minHeight: "100vh", background: "var(--bg-gradient)" }}>
+      {/* NAVBAR */}
+      <header class="app-navbar">
+        <div class="brand-container">
+          <div class="brand-icon">♻️</div>
+          <div>
+            <h1 class="brand-title">WasteSmart <span>Seller</span></h1>
+          </div>
+        </div>
+
+        <div class="nav-actions">
+          {user && (
+            <div class="user-chip">
+              <span class="user-avatar">{user.name ? user.name.charAt(0).toUpperCase() : "S"}</span>
+              <span>{user.name}</span>
+              <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "9999px", background: "#dcfce7", color: "#15803d", fontWeight: "700" }}>Seller</span>
+            </div>
+          )}
+          <button onClick={handleLogout} class="btn-logout">
             Logout
           </button>
         </div>
       </header>
 
-      {/* MAIN */}
-      <main style={{ display: "flex", gap: "24px", padding: "24px" }}>
-        {/* LEFT - FORM */}
-        <div
-          style={{
-            flex: 1,
-            background: "white",
-            padding: "16px",
-            borderRadius: "8px",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-          }}
-        >
-          <h3>Add Waste Item</h3>
-
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: "8px" }}>
-              <label>Title</label>
-              <input
-                name="title"
-                value={form.title}
-                onChange={handleChange}
-                required
-                style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-              />
+      {/* MAIN CONTENT */}
+      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem 1.5rem" }}>
+        
+        {/* STATS OVERVIEW BAR */}
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Active Listed Items</p>
+              <h2>{items.length}</h2>
             </div>
-
-            <div style={{ marginBottom: "8px" }}>
-              <label>Category</label>
-              <select
-                name="category"
-                value={form.category}
-                onChange={handleChange}
-                style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-              >
-                <option value="Plastic">Plastic</option>
-                <option value="Metal">Metal</option>
-                <option value="Paper">Paper</option>
-                <option value="E-waste">E-waste</option>
-              </select>
-            </div>
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <div style={{ flex: 1, marginBottom: "8px" }}>
-                <label>Approx Weight (kg)</label>
-                <input
-                  name="approx_weight"
-                  value={form.approx_weight}
-                  onChange={handleChange}
-                  required
-                  type="number"
-                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-                />
-              </div>
-
-              <div style={{ flex: 1, marginBottom: "8px" }}>
-                <label>Base Price (₹)</label>
-                <input
-                  name="base_price"
-                  value={form.base_price}
-                  onChange={handleChange}
-                  required
-                  type="number"
-                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: "8px" }}>
-              <label>Address</label>
-              <input
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <div style={{ flex: 1, marginBottom: "8px" }}>
-                <label>City</label>
-                <input
-                  name="city"
-                  value={form.city}
-                  onChange={handleChange}
-                  required
-                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-                />
-              </div>
-
-              <div style={{ flex: 1, marginBottom: "8px" }}>
-                <label>Pincode</label>
-                <input
-                  name="pincode"
-                  value={form.pincode}
-                  onChange={handleChange}
-                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              style={{
-                marginTop: "8px",
-                padding: "10px 16px",
-                background: "#2563eb",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Add Item
-            </button>
-
-            {message && (
-              <p style={{ marginTop: "8px", color: "#444" }}>{message}</p>
-            )}
-          </form>
-        </div>
-
-        {/* RIGHT - LIST & REQUESTS */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: "24px",
-          }}
-        >
-          {/* INCOMING REQUESTS */}
-          <div
-            style={{
-              background: "white",
-              padding: "16px",
-              borderRadius: "8px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-            }}
-          >
-            <h3>Incoming Requests</h3>
-            {requests.length === 0 ? (
-              <p style={{ marginTop: "8px", color: "#6b7280" }}>No incoming requests yet.</p>
-            ) : (
-              <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
-                {requests.map((req) => (
-                  <li
-                    key={req.id}
-                    style={{
-                      borderBottom: "1px solid #e5e7eb",
-                      padding: "12px 0",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <strong>{req.title}</strong>
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          padding: "2px 6px",
-                          borderRadius: "4px",
-                          background:
-                            req.status === "PENDING"
-                              ? "#fef3c7"
-                              : req.status === "ACCEPTED"
-                              ? "#dcfce7"
-                              : req.status === "COMPLETED"
-                              ? "#e0f2fe"
-                              : "#fee2e2",
-                          color:
-                            req.status === "PENDING"
-                              ? "#92400e"
-                              : req.status === "ACCEPTED"
-                              ? "#166534"
-                              : req.status === "COMPLETED"
-                              ? "#075985"
-                              : "#991b1b",
-                        }}
-                      >
-                        {req.status}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                      <span>Weight: {req.approx_weight} kg • Price: ₹{req.base_price}</span>
-                      <br />
-                      <span>Buyer: {req.buyerName} ({req.buyerEmail})</span>
-                      {req.buyerPhone && <span> • Phone: {req.buyerPhone}</span>}
-                    </div>
-                    {req.status === "PENDING" && (
-                      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                        <button
-                          onClick={() => handleUpdateRequestStatus(req.id, "ACCEPTED")}
-                          style={{
-                            padding: "4px 10px",
-                            background: "#16a34a",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                          }}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleUpdateRequestStatus(req.id, "REJECTED")}
-                          style={{
-                            padding: "4px 10px",
-                            background: "#ef4444",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                          }}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                    {req.status === "ACCEPTED" && (
-                      <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                        <button
-                          onClick={() => handleUpdateRequestStatus(req.id, "COMPLETED")}
-                          style={{
-                            padding: "4px 10px",
-                            background: "#2563eb",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "13px",
-                          }}
-                        >
-                          Mark Completed / Picked Up
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div class="stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>📦</div>
           </div>
 
-          {/* MY WASTE ITEMS */}
-          <div
-            style={{
-              background: "white",
-              padding: "16px",
-              borderRadius: "8px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
-            }}
-          >
-            <h3>My Waste Items</h3>
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Pending Pick-Up Requests</p>
+              <h2 style={{ color: "#d97706" }}>{pendingRequestsCount}</h2>
+            </div>
+            <div class="stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>📩</div>
+          </div>
 
-            {items.length === 0 ? (
-              <p style={{ marginTop: "8px" }}>No items yet.</p>
-            ) : (
-              <ul style={{ listStyle: "none", padding: 0, marginTop: "8px" }}>
-                {items.map((item) => (
-                  <li
-                    key={item.id}
-                    style={{
-                      borderBottom: "1px solid #e5e7eb",
-                      padding: "8px 0",
-                    }}
-                  >
-                    <strong>{item.title}</strong> ({item.category})<br />
-                    {item.approx_weight} kg • ₹{item.base_price} • {item.city}
-                    <br />
-                    <span
+          <div class="stat-card">
+            <div class="stat-info">
+              <p>Accepted / Deals Closed</p>
+              <h2 style={{ color: "#2563eb" }}>{acceptedRequestsCount}</h2>
+            </div>
+            <div class="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>🤝</div>
+          </div>
+        </div>
+
+        {/* FEEDBACK TOAST */}
+        {message && (
+          <div style={{
+            padding: "0.85rem 1.25rem",
+            marginBottom: "1.5rem",
+            background: "#ecfdf5",
+            color: "#047857",
+            borderRadius: "1rem",
+            fontSize: "0.875rem",
+            fontWeight: "600",
+            border: "1px solid #a7f3d0",
+            boxShadow: "0 4px 12px rgba(5, 150, 105, 0.1)"
+          }}>
+            ⚡ {message}
+          </div>
+        )}
+
+        {/* DASHBOARD GRID */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "1.75rem" }}>
+          
+          {/* LEFT: POST WASTE ITEM FORM */}
+          <div style={{ background: "#ffffff", padding: "1.75rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)" }}>
+            <div style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "1rem", marginBottom: "1.25rem" }}>
+              <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "800", color: "#0f172a" }}>Post Scrap / Waste Material</h2>
+              <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.8125rem", color: "#64748b" }}>List items for verified recycling collectors</p>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div class="auth-form-group">
+                <label class="auth-label">Listing Title</label>
+                <input
+                  name="title"
+                  value={form.title}
+                  onChange={handleChange}
+                  placeholder="e.g. Clean HDPE Bottles & E-Waste Boards"
+                  required
+                  class="auth-input"
+                />
+              </div>
+
+              {/* CATEGORY VISUAL PILLS */}
+              <div class="auth-form-group">
+                <label class="auth-label">Select Category</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem" }}>
+                  {[
+                    { id: "E-waste", label: "⚡ E-waste" },
+                    { id: "Plastic", label: "♻️ Plastic" },
+                    { id: "Metal", label: "🔩 Metal" },
+                    { id: "Paper", label: "📄 Paper" }
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleCategorySelect(cat.id)}
                       style={{
-                        fontSize: "12px",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        background:
-                          item.status === "OPEN"
-                            ? "#e0f2fe"
-                            : item.status === "ACCEPTED"
-                            ? "#dcfce7"
-                            : "#fee2e2",
-                        color:
-                          item.status === "OPEN"
-                            ? "#075985"
-                            : item.status === "ACCEPTED"
-                            ? "#166534"
-                            : "#991b1b",
+                        padding: "0.5rem 0.25rem",
+                        fontSize: "0.75rem",
+                        fontWeight: "700",
+                        borderRadius: "0.625rem",
+                        border: "1px solid",
+                        borderColor: form.category === cat.id ? "#059669" : "#cbd5e1",
+                        background: form.category === cat.id ? "#ecfdf5" : "#ffffff",
+                        color: form.category === cat.id ? "#059669" : "#64748b",
+                        cursor: "pointer"
                       }}
                     >
-                      {item.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div class="auth-form-group">
+                  <label class="auth-label">Approx Weight (kg)</label>
+                  <input
+                    name="approx_weight"
+                    type="number"
+                    min="1"
+                    value={form.approx_weight}
+                    onChange={handleChange}
+                    placeholder="150"
+                    required
+                    class="auth-input"
+                  />
+                </div>
+
+                <div class="auth-form-group">
+                  <label class="auth-label">Base Price (₹)</label>
+                  <input
+                    name="base_price"
+                    type="number"
+                    min="0"
+                    value={form.base_price}
+                    onChange={handleChange}
+                    placeholder="2500"
+                    required
+                    class="auth-input"
+                  />
+                </div>
+              </div>
+
+              <div class="auth-form-group">
+                <label class="auth-label">Street / Industrial Address</label>
+                <input
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  placeholder="Guindy Industrial Estate"
+                  required
+                  class="auth-input"
+                />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                <div class="auth-form-group">
+                  <label class="auth-label">City</label>
+                  <input
+                    name="city"
+                    value={form.city}
+                    onChange={handleChange}
+                    placeholder="Chennai"
+                    required
+                    class="auth-input"
+                  />
+                </div>
+
+                <div class="auth-form-group">
+                  <label class="auth-label">Pincode</label>
+                  <input
+                    name="pincode"
+                    value={form.pincode}
+                    onChange={handleChange}
+                    placeholder="600032"
+                    required
+                    class="auth-input"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                class="auth-btn"
+                style={{ marginTop: "0.5rem" }}
+              >
+                {loading ? "Posting..." : "➕ List Waste Material"}
+              </button>
+            </form>
           </div>
+
+          {/* RIGHT: INCOMING REQUESTS & MY ITEMS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+            
+            {/* INCOMING REQUESTS PANEL */}
+            <div style={{ background: "#ffffff", padding: "1.5rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#0f172a" }}>📩 Incoming Pick-Up Requests</h3>
+                  <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>Manage buyer collection requests</p>
+                </div>
+                <span style={{ fontSize: "0.75rem", fontWeight: "700", padding: "0.2rem 0.6rem", borderRadius: "9999px", background: "#fef3c7", color: "#92400e" }}>
+                  {pendingRequestsCount} Pending
+                </span>
+              </div>
+
+              {requests.length === 0 ? (
+                <p style={{ fontSize: "0.8125rem", color: "#94a3b8", textAlign: "center", padding: "1.5rem 0" }}>No incoming requests yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", maxHeight: "280px", overflowY: "auto", paddingRight: "0.3rem" }}>
+                  {requests.map((req) => (
+                    <div key={req.id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.875rem", padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <div style={{ display: "flex", justify: "space-between", alignItems: "center" }}>
+                        <strong style={{ fontSize: "0.875rem", color: "#0f172a" }}>{req.title}</strong>
+                        <span style={{
+                          fontSize: "0.7rem",
+                          fontWeight: "700",
+                          padding: "0.2rem 0.6rem",
+                          borderRadius: "9999px",
+                          background: req.status === "PENDING" ? "#fef3c7" : req.status === "ACCEPTED" ? "#dcfce7" : req.status === "COMPLETED" ? "#e0f2fe" : "#fee2e2",
+                          color: req.status === "PENDING" ? "#92400e" : req.status === "ACCEPTED" ? "#166534" : req.status === "COMPLETED" ? "#075985" : "#991b1b",
+                        }}>
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                        <span>Buyer: <strong style={{ color: "#334155" }}>{req.buyerName}</strong> ({req.buyerEmail})</span>
+                        {req.buyerPhone && <span> • 📞 {req.buyerPhone}</span>}
+                      </div>
+
+                      {req.status === "PENDING" && (
+                        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                          <button
+                            onClick={() => handleUpdateRequestStatus(req.id, "ACCEPTED")}
+                            style={{ padding: "0.35rem 0.85rem", background: "#059669", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontSize: "0.75rem", fontWeight: "700" }}
+                          >
+                            ✓ Accept Pick-Up
+                          </button>
+                          <button
+                            onClick={() => handleUpdateRequestStatus(req.id, "REJECTED")}
+                            style={{ padding: "0.35rem 0.85rem", background: "#ef4444", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontSize: "0.75rem", fontWeight: "700" }}
+                          >
+                            ✕ Decline
+                          </button>
+                        </div>
+                      )}
+
+                      {req.status === "ACCEPTED" && (
+                        <button
+                          onClick={() => handleUpdateRequestStatus(req.id, "COMPLETED")}
+                          style={{ padding: "0.35rem 0.85rem", background: "#2563eb", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer", fontSize: "0.75rem", fontWeight: "700", width: "fit-content", marginTop: "0.25rem" }}
+                        >
+                          🏁 Mark Picked Up / Completed
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* MY LISTED ITEMS PANEL */}
+            <div style={{ background: "#ffffff", padding: "1.5rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)" }}>
+              <div style={{ display: "flex", alignItems: "center", justify: "space-between", marginBottom: "1rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#0f172a" }}>📋 My Active Listings</h3>
+                  <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>Listings posted under your account</p>
+                </div>
+                <span style={{ fontSize: "0.75rem", fontWeight: "700", padding: "0.2rem 0.6rem", borderRadius: "9999px", background: "#ecfdf5", color: "#059669" }}>
+                  {items.length} Active
+                </span>
+              </div>
+
+              {items.length === 0 ? (
+                <p style={{ fontSize: "0.8125rem", color: "#94a3b8", textAlign: "center", padding: "1.5rem 0" }}>No waste items posted yet.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "280px", overflowY: "auto", paddingRight: "0.3rem" }}>
+                  {items.map((item) => (
+                    <div key={item.id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.875rem", padding: "0.75rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <strong style={{ fontSize: "0.875rem", color: "#0f172a" }}>{item.title}</strong>
+                          <span class="category-chip" style={{ fontSize: "0.6875rem", padding: "0.15rem 0.5rem" }}>{item.category}</span>
+                        </div>
+                        <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>
+                          {item.approx_weight} kg • ₹{item.base_price} • {item.city}
+                        </p>
+                      </div>
+
+                      <span style={{
+                        fontSize: "0.7rem",
+                        fontWeight: "700",
+                        padding: "0.25rem 0.6rem",
+                        borderRadius: "0.5rem",
+                        background: item.status === "OPEN" ? "#eff6ff" : item.status === "ACCEPTED" ? "#dcfce7" : "#f1f5f9",
+                        color: item.status === "OPEN" ? "#1d4ed8" : item.status === "ACCEPTED" ? "#15803d" : "#64748b"
+                      }}>
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+
         </div>
+
       </main>
     </div>
   );

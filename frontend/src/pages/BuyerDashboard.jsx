@@ -1,80 +1,61 @@
 // src/pages/BuyerDashboard.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { setAuthToken } from "../services/api";
 
-const BuyerDashboard = () => {
+function BuyerDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [items, setItems] = useState([]);
+  const [myRequests, setMyRequests] = useState([]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [cityFilter, setCityFilter] = useState("All");
-  const [myRequests, setMyRequests] = useState([]);
+  const [selectedItem, setSelectedItem] = useState(null); // Modal details
   const [message, setMessage] = useState("");
 
-  // Load user details
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     const token = localStorage.getItem("token");
-    if (!token) {
+
+    if (!userStr || !token) {
       navigate("/login");
       return;
     }
-    if (userStr) {
-      setUser(JSON.parse(userStr));
-    }
+
+    setUser(JSON.parse(userStr));
+    fetchItems();
+    fetchMyRequests();
   }, [navigate]);
 
-  // Fetch items + requests from backend
   const fetchItems = async () => {
     try {
-      const res = await api.get("/waste"); // GET /api/waste
+      const res = await api.get("/waste");
       setItems(res.data || []);
     } catch (err) {
-      console.error("Error fetching items", err);
+      console.error("Error fetching items:", err);
     }
   };
 
   const fetchMyRequests = async () => {
     try {
-      const res = await api.get("/requests/my");
-      const mapped = res.data.map((r) => ({
-        id: r.id,
-        waste_item_id: r.waste_item_id,
-        title: r.title,
-        city: r.city,
-        approx_weight: r.approx_weight,
-        base_price: r.base_price,
-        status: r.status,
-        requestedAt: new Date(r.created_at || Date.now()).toLocaleString(),
-      }));
-      setMyRequests(mapped);
+      const res = await api.get("/requests/buyer");
+      setMyRequests(res.data || []);
     } catch (err) {
-      console.error("Error fetching my requests", err);
+      console.error("Error fetching buyer requests:", err);
     }
   };
 
-  useEffect(() => {
-    fetchItems();
-    fetchMyRequests();
-  }, []);
-
-  const handleSendRequest = async (item) => {
-    // prevent duplicate requests for same item
-    if (myRequests.some((req) => String(req.waste_item_id) === String(item.id))) return;
-
+  const handleSendRequest = async (itemId) => {
+    setMessage("Sending request...");
     try {
-      setMessage("Sending request...");
-      await api.post("/requests", {
-        waste_item_id: item.id,
-      });
-
-      setMessage("Request sent successfully!");
+      const res = await api.post("/requests", { waste_item_id: itemId });
+      setMessage(res.data.message || "Request sent successfully!");
       setTimeout(() => setMessage(""), 3000);
-      await fetchMyRequests();
+      fetchMyRequests();
+      setSelectedItem(null);
     } catch (err) {
-      console.error("Error creating request", err);
+      console.error("Error sending request:", err);
       setMessage(err.response?.data?.message || "Failed to send request.");
       setTimeout(() => setMessage(""), 3000);
     }
@@ -88,217 +69,344 @@ const BuyerDashboard = () => {
     navigate("/login");
   };
 
+  // Filtered items
   const filteredItems = items.filter((item) => {
-    const matchSearch =
+    const matchesSearch =
       item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.category.toLowerCase().includes(search.toLowerCase());
+      item.category.toLowerCase().includes(search.toLowerCase()) ||
+      item.city.toLowerCase().includes(search.toLowerCase());
 
-    const matchCategory =
+    const matchesCategory =
       categoryFilter === "All" || item.category === categoryFilter;
 
-    const matchCity = cityFilter === "All" || item.city === cityFilter;
+    const matchesCity =
+      cityFilter === "All" || item.city === cityFilter;
 
-    return matchSearch && matchCategory && matchCity;
+    return matchesSearch && matchesCategory && matchesCity;
   });
 
-  const totalRequests = myRequests.length;
-  const activeOrders = myRequests.filter(
-    (req) => req.status === "PENDING" || req.status === "ACCEPTED"
-  ).length;
-  const completedOrders = myRequests.filter(
-    (req) => req.status === "COMPLETED"
-  ).length;
+  const getRequestForWasteItem = (itemId) => {
+    return myRequests.find((r) => r.waste_item_id === itemId);
+  };
+
+  const activeOrdersCount = myRequests.filter(r => r.status === "PENDING" || r.status === "ACCEPTED").length;
+  const completedOrdersCount = myRequests.filter(r => r.status === "COMPLETED").length;
 
   return (
-    <div className="buyer-dashboard">
-      {/* Header */}
-      <header className="bd-header">
-        <div className="bd-logo">
-          WasteSmart<span> Marketplace</span>
+    <div style={{ minHeight: "100vh", background: "var(--bg-gradient)" }}>
+      {/* NAVBAR */}
+      <header className="app-navbar">
+        <div className="brand-container">
+          <div className="brand-icon">🛒</div>
+          <div>
+            <h1 className="brand-title">WasteSmart <span>Collector</span></h1>
+          </div>
         </div>
 
-        <div className="bd-search">
-          <input
-            type="text"
-            placeholder="Search plastic, paper, metal..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        {/* SEARCH & FILTERS IN NAVBAR */}
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: "0.75rem", top: "0.55rem", fontSize: "0.8125rem", color: "#64748b" }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Search PCB, Copper, Batteries, City..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="auth-input"
+              style={{ paddingLeft: "2.25rem", width: "240px", borderRadius: "9999px" }}
+            />
+          </div>
 
-        <div className="bd-filters" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
+            className="auth-input"
+            style={{ width: "auto", borderRadius: "9999px" }}
           >
             <option value="All">All Categories</option>
-            <option value="Plastic">Plastic</option>
-            <option value="Paper">Paper</option>
-            <option value="Metal">Metal</option>
-            <option value="E-waste">E-waste</option>
+            <option value="E-waste">⚡ E-waste</option>
+            <option value="Plastic">♻️ Plastic</option>
+            <option value="Metal">🔩 Metal</option>
+            <option value="Paper">📄 Paper</option>
           </select>
 
           <select
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
+            className="auth-input"
+            style={{ width: "auto", borderRadius: "9999px" }}
           >
             <option value="All">All Cities</option>
-            <option value="Salem">Salem</option>
             <option value="Chennai">Chennai</option>
             <option value="Coimbatore">Coimbatore</option>
+            <option value="Salem">Salem</option>
             <option value="Trichy">Trichy</option>
-            <option value="Erode">Erode</option>
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Pune">Pune</option>
           </select>
+        </div>
 
+        <div className="nav-actions">
           {user && (
-            <span style={{ fontSize: "14px", fontWeight: "600", color: "#374151" }}>
-              Hi, {user.name}
-            </span>
+            <div className="user-chip">
+              <span className="user-avatar" style={{ background: "#dbeafe", color: "#1d4ed8" }}>
+                {user.name ? user.name.charAt(0).toUpperCase() : "C"}
+              </span>
+              <span>{user.name}</span>
+              <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "9999px", background: "#dbeafe", color: "#1e40af", fontWeight: "700" }}>Collector</span>
+            </div>
           )}
-
-          <button
-            onClick={handleLogout}
-            style={{
-              padding: "6px 14px",
-              background: "#ef4444",
-              color: "white",
-              border: "none",
-              borderRadius: "999px",
-              cursor: "pointer",
-              fontSize: "14px",
-            }}
-          >
+          <button onClick={handleLogout} className="btn-logout">
             Logout
           </button>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="bd-main">
-        <section className="bd-left">
-          {/* Status Message Toast */}
-          {message && (
-            <div style={{
-              padding: "10px 16px",
-              marginBottom: "12px",
-              background: "#dcfce7",
-              color: "#166534",
-              borderRadius: "8px",
-              fontWeight: "500",
-              fontSize: "14px"
-            }}>
-              {message}
+      {/* MAIN CONTENT */}
+      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem 1.5rem" }}>
+        
+        {/* STATS OVERVIEW BAR */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Available Listings</p>
+              <h2>{items.length.toLocaleString()}</h2>
             </div>
-          )}
-
-          {/* Stats */}
-          <div className="bd-stats">
-            <div className="bd-stat-card">
-              <p>Total Requests</p>
-              <h2>{totalRequests}</h2>
-            </div>
-            <div className="bd-stat-card">
-              <p>Active Orders</p>
-              <h2>{activeOrders}</h2>
-            </div>
-            <div className="bd-stat-card">
-              <p>Completed</p>
-              <h2>{completedOrders}</h2>
-            </div>
+            <div className="stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>⚡</div>
           </div>
 
-          {/* Items */}
-          <div className="bd-section-header">
-            <h3>Available Waste Items</h3>
-            <span>{filteredItems.length} items</span>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>My Requests Sent</p>
+              <h2 style={{ color: "#2563eb" }}>{myRequests.length}</h2>
+            </div>
+            <div className="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>📄</div>
           </div>
 
-          <div className="bd-items-grid">
-            {filteredItems.map((item) => {
-              const existingReq = myRequests.find(
-                (req) => String(req.waste_item_id) === String(item.id)
-              );
-              return (
-                <div key={item.id} className="bd-item-card">
-                  <div className="bd-item-header">
-                    <h4>{item.title}</h4>
-                    <span className="bd-category-chip">{item.category}</span>
-                  </div>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Active Orders (Pending/Accepted)</p>
+              <h2 style={{ color: "#d97706" }}>{activeOrdersCount}</h2>
+            </div>
+            <div className="stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>🚚</div>
+          </div>
 
-                  <div className="bd-item-body">
-                    <p>
-                      <strong>Weight:</strong> {item.approx_weight} kg
-                    </p>
-                    <p>
-                      <strong>Base Price:</strong> ₹{item.base_price}
-                    </p>
-                    <p>
-                      <strong>Location:</strong> {item.city} – {item.pincode}
-                    </p>
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Completed Pick-ups</p>
+              <h2 style={{ color: "#7c3aed" }}>{completedOrdersCount}</h2>
+            </div>
+            <div className="stat-icon" style={{ background: "#f3e8ff", color: "#7c3aed" }}>✅</div>
+          </div>
+        </div>
 
-                    <p className="bd-address">
-                      Seller: {item.sellerName || "Seller"} ({item.sellerEmail || "N/A"})
-                    </p>
-                  </div>
+        {/* FEEDBACK TOAST */}
+        {message && (
+          <div style={{
+            padding: "0.85rem 1.25rem",
+            marginBottom: "1.5rem",
+            background: "#ecfdf5",
+            color: "#047857",
+            borderRadius: "1rem",
+            fontSize: "0.875rem",
+            fontWeight: "600",
+            border: "1px solid #a7f3d0",
+            boxShadow: "0 4px 12px rgba(5, 150, 105, 0.1)"
+          }}>
+            ⚡ {message}
+          </div>
+        )}
 
-                  <div className="bd-item-actions">
-                    {existingReq ? (
-                      <span className={`bd-status bd-status-${existingReq.status.toLowerCase()}`}>
-                        {existingReq.status}
-                      </span>
-                    ) : (
-                      <button
-                        className="btn-primary"
-                        onClick={() => handleSendRequest(item)}
-                      >
-                        Send Request
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+        {/* DASHBOARD GRID */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.75rem" }}>
+          
+          {/* LEFT: WASTE MARKETPLACE ITEMS GRID */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "800", color: "#0f172a" }}>
+                Waste & Scrap Material Marketplace
+              </h2>
+              <span style={{ fontSize: "0.8125rem", color: "#64748b" }}>
+                Showing <strong>{Math.min(50, filteredItems.length)}</strong> of {filteredItems.length.toLocaleString()} matches
+              </span>
+            </div>
 
-            {filteredItems.length === 0 && (
-              <p className="bd-empty">No items match your filters.</p>
+            {filteredItems.length === 0 ? (
+              <div style={{ background: "#ffffff", padding: "3rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", textAlign: "center", color: "#64748b" }}>
+                No scrap items match your current search and filter criteria.
+              </div>
+            ) : (
+              <div className="items-grid">
+                {filteredItems.slice(0, 50).map((item) => {
+                  const req = getRequestForWasteItem(item.id);
+                  return (
+                    <div key={item.id} className="waste-card">
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                          <h4 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "800", color: "#0f172a", lineHeight: "1.3" }}>
+                            {item.title}
+                          </h4>
+                          <span className="category-chip">{item.category}</span>
+                        </div>
+
+                        <p style={{ margin: "0.3rem 0", fontSize: "0.8125rem", color: "#64748b" }}>
+                          ⚡ <strong>{item.approx_weight} kg</strong> • Base Price: <strong className="price-tag">₹{item.base_price.toLocaleString()}</strong>
+                        </p>
+
+                        <p style={{ margin: "0.3rem 0", fontSize: "0.75rem", color: "#64748b" }}>
+                          📍 {item.city} ({item.address})
+                        </p>
+
+                        <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.7rem", color: "#94a3b8" }}>
+                          Seller: {item.sellerName}
+                        </p>
+                      </div>
+
+                      <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #f1f5f9", display: "flex", gap: "0.5rem" }}>
+                        <button
+                          onClick={() => setSelectedItem(item)}
+                          className="btn-card-action btn-card-outline"
+                          style={{ flex: 1 }}
+                        >
+                          👁️ Details
+                        </button>
+
+                        {req ? (
+                          <span style={{
+                            padding: "0.5rem 0.75rem",
+                            borderRadius: "0.75rem",
+                            fontSize: "0.75rem",
+                            fontWeight: "700",
+                            background: req.status === "PENDING" ? "#fef3c7" : req.status === "ACCEPTED" ? "#dcfce7" : "#e0f2fe",
+                            color: req.status === "PENDING" ? "#92400e" : req.status === "ACCEPTED" ? "#166534" : "#075985",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flex: 1
+                          }}>
+                            {req.status}
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleSendRequest(item.id)}
+                            className="btn-card-action btn-card-primary"
+                            style={{ flex: 1 }}
+                          >
+                            🚀 Request Pick-Up
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-        </section>
 
-        {/* Right: My Requests */}
-        <aside className="bd-right">
-          <h3>My Requests</h3>
-          {myRequests.length === 0 ? (
-            <p className="bd-empty">
-              You haven&apos;t requested any items yet. Explore items and click
-              &quot;Send Request&quot;.
-            </p>
-          ) : (
-            <ul className="bd-requests-list">
-              {myRequests.map((req) => (
-                <li key={req.id} className="bd-request-item">
-                  <div>
-                    <h4>{req.title}</h4>
-                    <p className="bd-request-meta">
-                      {req.city} • {req.approx_weight} kg • ₹{req.base_price}
-                    </p>
-                    <p className="bd-request-time">
-                      Requested at: {req.requestedAt}
+          {/* RIGHT: MY SENT REQUESTS TRACKER PANEL */}
+          <div style={{ background: "#ffffff", padding: "1.5rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)", height: "fit-content" }}>
+            <div style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#0f172a" }}>📌 My Sent Requests</h3>
+              <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>Track status of your collection orders</p>
+            </div>
+
+            {myRequests.length === 0 ? (
+              <p style={{ fontSize: "0.8125rem", color: "#94a3b8", textAlign: "center", padding: "1.5rem 0" }}>No requests sent yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", maxHeight: "550px", overflowY: "auto", paddingRight: "0.3rem" }}>
+                {myRequests.map((req) => (
+                  <div key={req.id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.875rem", padding: "0.85rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.3rem" }}>
+                      <strong style={{ fontSize: "0.8125rem", color: "#0f172a" }}>{req.title}</strong>
+                      <span style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: "700",
+                        padding: "0.15rem 0.5rem",
+                        borderRadius: "9999px",
+                        background: req.status === "PENDING" ? "#fef3c7" : req.status === "ACCEPTED" ? "#dcfce7" : req.status === "COMPLETED" ? "#e0f2fe" : "#fee2e2",
+                        color: req.status === "PENDING" ? "#92400e" : req.status === "ACCEPTED" ? "#166534" : req.status === "COMPLETED" ? "#075985" : "#991b1b",
+                      }}>
+                        {req.status}
+                      </span>
+                    </div>
+
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
+                      📍 {req.city} • {req.approx_weight} kg • ₹{req.base_price}
                     </p>
                   </div>
-                  <span
-                    className={`bd-status bd-status-${req.status.toLowerCase()}`}
-                  >
-                    {req.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+
       </main>
+
+      {/* ITEM DETAILS MODAL */}
+      {selectedItem && (
+        <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+              <div>
+                <span className="category-chip" style={{ marginBottom: "0.4rem" }}>{selectedItem.category}</span>
+                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "800", color: "#0f172a" }}>{selectedItem.title}</h3>
+              </div>
+              <button
+                onClick={() => setSelectedItem(null)}
+                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "1rem", padding: "1rem", marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.875rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Approx Weight:</span>
+                <strong style={{ color: "#0f172a" }}>{selectedItem.approx_weight} kg</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Base Price:</span>
+                <strong style={{ color: "#059669" }}>₹{selectedItem.base_price.toLocaleString()}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "#64748b" }}>Location / Address:</span>
+                <strong style={{ color: "#0f172a", textAlign: "right" }}>{selectedItem.address}, {selectedItem.city} ({selectedItem.pincode})</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "0.5rem", borderTop: "1px dashed #cbd5e1" }}>
+                <span style={{ color: "#64748b" }}>Listed By Seller:</span>
+                <strong style={{ color: "#0f172a" }}>{selectedItem.sellerName} ({selectedItem.sellerEmail})</strong>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="btn-card-action btn-card-outline"
+              >
+                Close
+              </button>
+
+              {!getRequestForWasteItem(selectedItem.id) ? (
+                <button
+                  onClick={() => handleSendRequest(selectedItem.id)}
+                  className="btn-card-action btn-card-primary"
+                >
+                  🚀 Confirm Pick-Up Request
+                </button>
+              ) : (
+                <button disabled className="btn-card-action btn-card-outline">
+                  Already Requested ({getRequestForWasteItem(selectedItem.id).status})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
 export default BuyerDashboard;

@@ -1,4 +1,4 @@
-// src/pages/LoginPage.js
+// src/pages/LoginPage.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api, { setAuthToken } from "../services/api";
@@ -8,112 +8,122 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("Logging in...");
+    setMessage("");
+    setLoading(true);
 
     try {
       const res = await api.post("/auth/login", { email, password });
-
       const { token, user } = res.data;
 
-      // Save token + user
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("role", user.role); // ⭐ add this
+      localStorage.setItem("role", user.role);
       setAuthToken(token);
 
-      setMessage(`Welcome, ${user.name}!`);
-
-      // ⭐ Redirect based on role
       if (user.role === "seller") {
         navigate("/seller");
       } else {
-        // buyer / collector / others → buyer dashboard
-        navigate("/buyer"); // ⭐ changed from /seller to /buyer
+        navigate("/buyer");
       }
     } catch (err) {
       console.error(err);
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Login failed. Try again.");
+        setMessage("Login failed. Please check your credentials.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#f5f5f5",
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "8px",
-          width: "320px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        }}
-      >
-        <h2 style={{ textAlign: "center", marginBottom: "16px" }}>
-          Waste Market Login
-        </h2>
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="auth-logo">♻️</div>
+          <h1 class="auth-title">Welcome Back</h1>
+          <p class="auth-subtitle">Sign in to manage waste trading & pick-ups</p>
+        </div>
+
+        {message && (
+          <div style={{
+            padding: "0.75rem 1rem",
+            marginBottom: "1.25rem",
+            background: "#fef2f2",
+            color: "#991b1b",
+            borderRadius: "0.75rem",
+            fontSize: "0.8125rem",
+            fontWeight: "600",
+            border: "1px solid #fecaca"
+          }}>
+            ⚠️ {message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "12px" }}>
-            <label>Email</label>
+          <div class="auth-form-group">
+            <label class="auth-label">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
               required
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+              class="auth-input"
             />
           </div>
 
-          <div style={{ marginBottom: "12px" }}>
-            <label>Password</label>
+          <div class="auth-form-group">
+            <label class="auth-label">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+              class="auth-input"
             />
           </div>
 
           <button
             type="submit"
-            style={{
-              width: "100%",
-              padding: "10px",
-              background: "#2563eb",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
+            disabled={loading}
+            class="auth-btn"
           >
-            Login
+            {loading ? "Signing in..." : "Sign In to Account"}
           </button>
         </form>
 
-        <p style={{ marginTop: "12px", textAlign: "center", fontSize: "14px" }}>
-          New user? <Link to="/register">Create an account</Link>
+        <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.875rem", color: "#64748b" }}>
+          Don't have an account?{" "}
+          <Link to="/register" style={{ color: "#059669", fontWeight: "700", textDecoration: "none" }}>
+            Create an Account
+          </Link>
         </p>
 
-        {message && (
-          <p style={{ marginTop: "8px", textAlign: "center", color: "#444" }}>
-            {message}
-          </p>
-        )}
+        {/* DEMO ACCOUNTS HELPER */}
+        <div style={{
+          marginTop: "1.5rem",
+          paddingTop: "1.25rem",
+          borderTop: "1px border-dash #e2e8f0",
+          fontSize: "0.75rem",
+          color: "#64748b"
+        }}>
+          <p style={{ fontWeight: "700", marginBottom: "0.4rem", color: "#334155" }}>🔑 Quick Demo Accounts:</p>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span><strong>Seller:</strong> john@seller.com</span>
+            <span>Password@123</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: "0.2rem" }}>
+            <span><strong>Collector:</strong> alex@collector.com</span>
+            <span>Password@123</span>
+          </div>
+        </div>
       </div>
     </div>
   );

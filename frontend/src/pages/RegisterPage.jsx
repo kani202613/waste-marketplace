@@ -1,4 +1,4 @@
-// src/pages/RegisterPage.js
+// src/pages/RegisterPage.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
@@ -18,6 +18,7 @@ function RegisterPage() {
   });
 
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setForm({
@@ -26,164 +27,175 @@ function RegisterPage() {
     });
   };
 
+  const handleRoleSelect = (role) => {
+    setForm({ ...form, role });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("Registering...");
+    setMessage("");
+    setLoading(true);
 
     try {
       const res = await api.post("/auth/register", form);
-       setMessage(res.data.message || "Registered!");
-
-      // after register, go to login
+      setMessage(res.data.message || "Account created successfully!");
       setTimeout(() => navigate("/login"), 1000);
     } catch (err) {
       console.error(err);
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Registration failed.");
+        setMessage("Registration failed. Please check your details.");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#e5e7eb",
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "8px",
-          width: "380px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        }}
-      >
-        <h2 style={{ textAlign: "center", marginBottom: "16px" }}>
-          Create Account
-        </h2>
+    <div class="auth-container">
+      <div class="auth-card" style={{ maxWidth: "480px" }}>
+        <div class="auth-header">
+          <div class="auth-logo">♻️</div>
+          <h1 class="auth-title">Create Account</h1>
+          <p class="auth-subtitle">Join WasteSmart as a Seller or Recycling Collector</p>
+        </div>
+
+        {message && (
+          <div style={{
+            padding: "0.75rem 1rem",
+            marginBottom: "1.25rem",
+            background: message.includes("success") || message.includes("created") ? "#ecfdf5" : "#fef2f2",
+            color: message.includes("success") || message.includes("created") ? "#047857" : "#991b1b",
+            borderRadius: "0.75rem",
+            fontSize: "0.8125rem",
+            fontWeight: "600",
+            border: "1px solid #a7f3d0"
+          }}>
+            {message.includes("success") || message.includes("created") ? "✅ " : "⚠️ "}{message}
+          </div>
+        )}
+
+        {/* ROLE SELECTOR TABS */}
+        <div class="role-selector">
+          <button
+            type="button"
+            class={`role-btn ${form.role === "seller" ? "active" : ""}`}
+            onClick={() => handleRoleSelect("seller")}
+          >
+            📦 Waste Seller
+          </button>
+          <button
+            type="button"
+            class={`role-btn ${form.role === "collector" ? "active" : ""}`}
+            onClick={() => handleRoleSelect("collector")}
+          >
+            🚚 Recycler / Collector
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: "8px" }}>
-            <label>Name</label>
+          <div class="auth-form-group">
+            <label class="auth-label">Full Name / Company Name</label>
             <input
               name="name"
               value={form.name}
               onChange={handleChange}
+              placeholder="e.g. John Doe / Green Scrap Co"
               required
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+              class="auth-input"
             />
           </div>
 
-          <div style={{ marginBottom: "8px" }}>
-            <label>Email</label>
+          <div class="auth-form-group">
+            <label class="auth-label">Email Address</label>
             <input
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
+              placeholder="name@company.com"
               required
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+              class="auth-input"
             />
           </div>
 
-          <div style={{ marginBottom: "8px" }}>
-            <label>Password</label>
+          <div class="auth-form-group">
+            <label class="auth-label">Password</label>
             <input
               type="password"
               name="password"
               value={form.password}
               onChange={handleChange}
+              placeholder="••••••••"
               required
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+              class="auth-input"
             />
           </div>
 
-          <div style={{ marginBottom: "8px" }}>
-            <label>Role</label>
-            <select
-              name="role"
-              value={form.role}
-              onChange={handleChange}
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-            >
-              <option value="seller">Seller</option>
-              <option value="collector">Collector</option>
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+            <div class="auth-form-group">
+              <label class="auth-label">Phone Number</label>
+              <input
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="+91 9876543210"
+                class="auth-input"
+              />
+            </div>
+
+            <div class="auth-form-group">
+              <label class="auth-label">City</label>
+              <input
+                name="city"
+                value={form.city}
+                onChange={handleChange}
+                placeholder="Chennai"
+                class="auth-input"
+              />
+            </div>
           </div>
 
-          <div style={{ marginBottom: "8px" }}>
-            <label>Phone</label>
-            <input
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-            />
-          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
+            <div class="auth-form-group">
+              <label class="auth-label">Address</label>
+              <input
+                name="address"
+                value={form.address}
+                onChange={handleChange}
+                placeholder="Industrial Estate, Guindy"
+                class="auth-input"
+              />
+            </div>
 
-          <div style={{ marginBottom: "8px" }}>
-            <label>Address</label>
-            <input
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-            />
-          </div>
-
-          <div style={{ marginBottom: "8px" }}>
-            <label>City</label>
-            <input
-              name="city"
-              value={form.city}
-              onChange={handleChange}
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-            />
-          </div>
-
-          <div style={{ marginBottom: "8px" }}>
-            <label>Pincode</label>
-            <input
-              name="pincode"
-              value={form.pincode}
-              onChange={handleChange}
-              style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-            />
+            <div class="auth-form-group">
+              <label class="auth-label">Pincode</label>
+              <input
+                name="pincode"
+                value={form.pincode}
+                onChange={handleChange}
+                placeholder="600032"
+                class="auth-input"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
-            style={{
-              width: "100%",
-              padding: "10px",
-              background: "#16a34a",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              marginTop: "6px",
-            }}
+            disabled={loading}
+            class="auth-btn"
           >
-            Register
+            {loading ? "Registering..." : "Create Account"}
           </button>
         </form>
 
-        <p style={{ marginTop: "10px", textAlign: "center", fontSize: "14px" }}>
-          Already have an account? <Link to="/login">Login</Link>
+        <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.875rem", color: "#64748b" }}>
+          Already have an account?{" "}
+          <Link to="/login" style={{ color: "#059669", fontWeight: "700", textDecoration: "none" }}>
+            Sign In
+          </Link>
         </p>
-
-        {message && (
-          <p style={{ marginTop: "8px", textAlign: "center", color: "#444" }}>
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );
