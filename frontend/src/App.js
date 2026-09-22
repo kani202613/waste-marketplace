@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage";
 import SellerDashboard from "./pages/SellerDashboard";
 import BuyerDashboard from "./pages/BuyerDashboard";
 import { setAuthToken } from "./services/api";
+import "./App.css";
 
 // small wrapper for protected routes
 const ProtectedRoute = ({ children, allowedRoles }) => {

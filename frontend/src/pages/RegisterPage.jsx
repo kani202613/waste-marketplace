@@ -53,12 +53,12 @@ function RegisterPage() {
   };
 
   return (
-    <div class="auth-container">
-      <div class="auth-card" style={{ maxWidth: "480px" }}>
-        <div class="auth-header">
-          <div class="auth-logo">♻️</div>
-          <h1 class="auth-title">Create Account</h1>
-          <p class="auth-subtitle">Join WasteSmart as a Seller or Recycling Collector</p>
+    <div className="auth-container">
+      <div className="auth-card" style={{ maxWidth: "480px" }}>
+        <div className="auth-header">
+          <div className="auth-logo">♻️</div>
+          <h1 className="auth-title">Create Account</h1>
+          <p className="auth-subtitle">Join WasteSmart as a Seller or Recycling Collector</p>
         </div>
 
         {message && (
@@ -77,17 +77,17 @@ function RegisterPage() {
         )}
 
         {/* ROLE SELECTOR TABS */}
-        <div class="role-selector">
+        <div className="role-selector">
           <button
             type="button"
-            class={`role-btn ${form.role === "seller" ? "active" : ""}`}
+            className={`role-btn ${form.role === "seller" ? "active" : ""}`}
             onClick={() => handleRoleSelect("seller")}
           >
             📦 Waste Seller
           </button>
           <button
             type="button"
-            class={`role-btn ${form.role === "collector" ? "active" : ""}`}
+            className={`role-btn ${form.role === "collector" ? "active" : ""}`}
             onClick={() => handleRoleSelect("collector")}
           >
             🚚 Recycler / Collector
@@ -95,20 +95,20 @@ function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div class="auth-form-group">
-            <label class="auth-label">Full Name / Company Name</label>
+          <div className="auth-form-group">
+            <label className="auth-label">Full Name / Company Name</label>
             <input
               name="name"
               value={form.name}
               onChange={handleChange}
               placeholder="e.g. John Doe / Green Scrap Co"
               required
-              class="auth-input"
+              className="auth-input"
             />
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-label">Email Address</label>
+          <div className="auth-form-group">
+            <label className="auth-label">Email Address</label>
             <input
               type="email"
               name="email"
@@ -116,12 +116,12 @@ function RegisterPage() {
               onChange={handleChange}
               placeholder="name@company.com"
               required
-              class="auth-input"
+              className="auth-input"
             />
           </div>
 
-          <div class="auth-form-group">
-            <label class="auth-label">Password</label>
+          <div className="auth-form-group">
+            <label className="auth-label">Password</label>
             <input
               type="password"
               name="password"
@@ -129,54 +129,54 @@ function RegisterPage() {
               onChange={handleChange}
               placeholder="••••••••"
               required
-              class="auth-input"
+              className="auth-input"
             />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-            <div class="auth-form-group">
-              <label class="auth-label">Phone Number</label>
+            <div className="auth-form-group">
+              <label className="auth-label">Phone Number</label>
               <input
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
                 placeholder="+91 9876543210"
-                class="auth-input"
+                className="auth-input"
               />
             </div>
 
-            <div class="auth-form-group">
-              <label class="auth-label">City</label>
+            <div className="auth-form-group">
+              <label className="auth-label">City</label>
               <input
                 name="city"
                 value={form.city}
                 onChange={handleChange}
                 placeholder="Chennai"
-                class="auth-input"
+                className="auth-input"
               />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
-            <div class="auth-form-group">
-              <label class="auth-label">Address</label>
+            <div className="auth-form-group">
+              <label className="auth-label">Address</label>
               <input
                 name="address"
                 value={form.address}
                 onChange={handleChange}
                 placeholder="Industrial Estate, Guindy"
-                class="auth-input"
+                className="auth-input"
               />
             </div>
 
-            <div class="auth-form-group">
-              <label class="auth-label">Pincode</label>
+            <div className="auth-form-group">
+              <label className="auth-label">Pincode</label>
               <input
                 name="pincode"
                 value={form.pincode}
                 onChange={handleChange}
                 placeholder="600032"
-                class="auth-input"
+                className="auth-input"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            class="auth-btn"
+            className="auth-btn"
           >
             {loading ? "Registering..." : "Create Account"}
           </button>

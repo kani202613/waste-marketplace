@@ -21,7 +21,6 @@ function SellerDashboard() {
     pincode: "",
   });
 
-  // Load user + items + incoming requests
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     const token = localStorage.getItem("token");
@@ -134,23 +133,23 @@ function SellerDashboard() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-gradient)" }}>
       {/* NAVBAR */}
-      <header class="app-navbar">
-        <div class="brand-container">
-          <div class="brand-icon">♻️</div>
+      <header className="app-navbar">
+        <div className="brand-container">
+          <div className="brand-icon">♻️</div>
           <div>
-            <h1 class="brand-title">WasteSmart <span>Seller</span></h1>
+            <h1 className="brand-title">WasteSmart <span>Seller</span></h1>
           </div>
         </div>
 
-        <div class="nav-actions">
+        <div className="nav-actions">
           {user && (
-            <div class="user-chip">
-              <span class="user-avatar">{user.name ? user.name.charAt(0).toUpperCase() : "S"}</span>
+            <div className="user-chip">
+              <span className="user-avatar">{user.name ? user.name.charAt(0).toUpperCase() : "S"}</span>
               <span>{user.name}</span>
               <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "9999px", background: "#dcfce7", color: "#15803d", fontWeight: "700" }}>Seller</span>
             </div>
           )}
-          <button onClick={handleLogout} class="btn-logout">
+          <button onClick={handleLogout} className="btn-logout">
             Logout
           </button>
         </div>
@@ -160,29 +159,29 @@ function SellerDashboard() {
       <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem 1.5rem" }}>
         
         {/* STATS OVERVIEW BAR */}
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-info">
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-info">
               <p>Active Listed Items</p>
               <h2>{items.length}</h2>
             </div>
-            <div class="stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>📦</div>
+            <div className="stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>📦</div>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-info">
+          <div className="stat-card">
+            <div className="stat-info">
               <p>Pending Pick-Up Requests</p>
               <h2 style={{ color: "#d97706" }}>{pendingRequestsCount}</h2>
             </div>
-            <div class="stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>📩</div>
+            <div className="stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>📩</div>
           </div>
 
-          <div class="stat-card">
-            <div class="stat-info">
+          <div className="stat-card">
+            <div className="stat-info">
               <p>Accepted / Deals Closed</p>
               <h2 style={{ color: "#2563eb" }}>{acceptedRequestsCount}</h2>
             </div>
-            <div class="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>🤝</div>
+            <div className="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>🤝</div>
           </div>
         </div>
 
@@ -214,21 +213,21 @@ function SellerDashboard() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div class="auth-form-group">
-                <label class="auth-label">Listing Title</label>
+              <div className="auth-form-group">
+                <label className="auth-label">Listing Title</label>
                 <input
                   name="title"
                   value={form.title}
                   onChange={handleChange}
                   placeholder="e.g. Clean HDPE Bottles & E-Waste Boards"
                   required
-                  class="auth-input"
+                  className="auth-input"
                 />
               </div>
 
               {/* CATEGORY VISUAL PILLS */}
-              <div class="auth-form-group">
-                <label class="auth-label">Select Category</label>
+              <div className="auth-form-group">
+                <label className="auth-label">Select Category</label>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.4rem" }}>
                   {[
                     { id: "E-waste", label: "⚡ E-waste" },
@@ -259,8 +258,8 @@ function SellerDashboard() {
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div class="auth-form-group">
-                  <label class="auth-label">Approx Weight (kg)</label>
+                <div className="auth-form-group">
+                  <label className="auth-label">Approx Weight (kg)</label>
                   <input
                     name="approx_weight"
                     type="number"
@@ -269,12 +268,12 @@ function SellerDashboard() {
                     onChange={handleChange}
                     placeholder="150"
                     required
-                    class="auth-input"
+                    className="auth-input"
                   />
                 </div>
 
-                <div class="auth-form-group">
-                  <label class="auth-label">Base Price (₹)</label>
+                <div className="auth-form-group">
+                  <label className="auth-label">Base Price (₹)</label>
                   <input
                     name="base_price"
                     type="number"
@@ -283,45 +282,45 @@ function SellerDashboard() {
                     onChange={handleChange}
                     placeholder="2500"
                     required
-                    class="auth-input"
+                    className="auth-input"
                   />
                 </div>
               </div>
 
-              <div class="auth-form-group">
-                <label class="auth-label">Street / Industrial Address</label>
+              <div className="auth-form-group">
+                <label className="auth-label">Street / Industrial Address</label>
                 <input
                   name="address"
                   value={form.address}
                   onChange={handleChange}
                   placeholder="Guindy Industrial Estate"
                   required
-                  class="auth-input"
+                  className="auth-input"
                 />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-                <div class="auth-form-group">
-                  <label class="auth-label">City</label>
+                <div className="auth-form-group">
+                  <label className="auth-label">City</label>
                   <input
                     name="city"
                     value={form.city}
                     onChange={handleChange}
                     placeholder="Chennai"
                     required
-                    class="auth-input"
+                    className="auth-input"
                   />
                 </div>
 
-                <div class="auth-form-group">
-                  <label class="auth-label">Pincode</label>
+                <div className="auth-form-group">
+                  <label className="auth-label">Pincode</label>
                   <input
                     name="pincode"
                     value={form.pincode}
                     onChange={handleChange}
                     placeholder="600032"
                     required
-                    class="auth-input"
+                    className="auth-input"
                   />
                 </div>
               </div>
@@ -329,7 +328,7 @@ function SellerDashboard() {
               <button
                 type="submit"
                 disabled={loading}
-                class="auth-btn"
+                className="auth-btn"
                 style={{ marginTop: "0.5rem" }}
               >
                 {loading ? "Posting..." : "➕ List Waste Material"}
@@ -342,7 +341,7 @@ function SellerDashboard() {
             
             {/* INCOMING REQUESTS PANEL */}
             <div style={{ background: "#ffffff", padding: "1.5rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justify: "space-between", marginBottom: "1rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem" }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#0f172a" }}>📩 Incoming Pick-Up Requests</h3>
                   <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>Manage buyer collection requests</p>
@@ -358,7 +357,7 @@ function SellerDashboard() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", maxHeight: "280px", overflowY: "auto", paddingRight: "0.3rem" }}>
                   {requests.map((req) => (
                     <div key={req.id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.875rem", padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                      <div style={{ display: "flex", justify: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <strong style={{ fontSize: "0.875rem", color: "#0f172a" }}>{req.title}</strong>
                         <span style={{
                           fontSize: "0.7rem",
@@ -429,7 +428,7 @@ function SellerDashboard() {
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <strong style={{ fontSize: "0.875rem", color: "#0f172a" }}>{item.title}</strong>
-                          <span class="category-chip" style={{ fontSize: "0.6875rem", padding: "0.15rem 0.5rem" }}>{item.category}</span>
+                          <span className="category-chip" style={{ fontSize: "0.6875rem", padding: "0.15rem 0.5rem" }}>{item.category}</span>
                         </div>
                         <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>
                           {item.approx_weight} kg • ₹{item.base_price} • {item.city}
