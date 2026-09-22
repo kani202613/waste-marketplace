@@ -46,12 +46,34 @@ exports.createWasteItem = async (req, res) => {
   }
 };
 
-// 2️⃣ BUYER: Get ALL open items with seller info
+// 2️⃣ BUYER: Get ALL open items with seller info (Supports filtering & limit for 1000+ items)
 exports.getAllWasteItems = async (req, res) => {
   try {
-    const items = await WasteItem.find({ status: 'OPEN' })
+    const { category, city, search, limit } = req.query;
+    let filter = { status: 'OPEN' };
+
+    if (category && category !== 'All') {
+      filter.category = category;
+    }
+
+    if (city && city !== 'All') {
+      filter.city = city;
+    }
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { category: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const queryLimit = parseInt(limit) || 1000;
+
+    const items = await WasteItem.find(filter)
       .populate('seller_id', 'name email')
-      .sort({ created_at: -1 });
+      .sort({ created_at: -1 })
+      .limit(queryLimit);
 
     const formatted = items.map(item => ({
       id: item._id,

@@ -9,7 +9,8 @@
     "client": "npm start --prefix frontend",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "npm install --prefix frontend && npm run build --prefix frontend",
-    "postinstall": "npm install --prefix frontend && npm run build --prefix frontend"
+    "postinstall": "npm install --prefix frontend && npm run build --prefix frontend",
+    "seed": "node backend/seed.js"
   },
   "keywords": [],
   "author": "",
