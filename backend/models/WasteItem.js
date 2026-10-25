@@ -13,7 +13,7 @@ const WasteItem = {
     return { id: result.lastID, ...data, status: 'OPEN' };
   },
 
-  findAllOpen: async ({ category, city, search, limit } = {}) => {
+  findAllOpen: async ({ category, city, search, sort, limit } = {}) => {
     const db = await dbPromise;
     let sql = `
       SELECT 
@@ -42,7 +42,16 @@ const WasteItem = {
       params.push(searchParam, searchParam, searchParam);
     }
 
-    sql += ` ORDER BY w.created_at DESC`;
+    // Dynamic sorting
+    if (sort === 'price_asc') {
+      sql += ` ORDER BY w.base_price ASC`;
+    } else if (sort === 'price_desc') {
+      sql += ` ORDER BY w.base_price DESC`;
+    } else if (sort === 'weight_desc') {
+      sql += ` ORDER BY w.approx_weight DESC`;
+    } else {
+      sql += ` ORDER BY w.created_at DESC`;
+    }
 
     if (limit) {
       sql += ` LIMIT ?`;
@@ -65,6 +74,11 @@ const WasteItem = {
   updateStatus: async (id, status) => {
     const db = await dbPromise;
     return await db.run(`UPDATE waste_items SET status = ? WHERE id = ?`, [status, id]);
+  },
+
+  deleteById: async (id, sellerId) => {
+    const db = await dbPromise;
+    return await db.run(`DELETE FROM waste_items WHERE id = ? AND seller_id = ?`, [id, sellerId]);
   }
 };
 

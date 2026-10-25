@@ -8,7 +8,9 @@ let dbInstance = null;
 async function getDb() {
   if (dbInstance) return dbInstance;
 
-  const dbPath = path.resolve(__dirname, '../database.sqlite');
+  const dbPath = process.env.DB_PATH 
+    ? path.resolve(process.env.DB_PATH) 
+    : path.resolve(__dirname, '../database.sqlite');
 
   dbInstance = await open({
     filename: dbPath,

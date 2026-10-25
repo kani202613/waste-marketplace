@@ -1,5 +1,5 @@
 // src/pages/BuyerDashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api, { setAuthToken } from "../services/api";
 
@@ -11,8 +11,38 @@ function BuyerDashboard() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [cityFilter, setCityFilter] = useState("All");
-  const [selectedItem, setSelectedItem] = useState(null); // Modal details
-  const [message, setMessage] = useState("");
+  const [sortOption, setSortOption] = useState("newest");
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [message, setMessage] = useState({ text: "", type: "info" });
+  const [loading, setLoading] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+
+  const showToast = (text, type = "success") => {
+    setMessage({ text, type });
+    setTimeout(() => setMessage({ text: "", type: "info" }), 4000);
+  };
+
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/waste?sort=${sortOption}`);
+      setItems(res.data || []);
+    } catch (err) {
+      console.error("Error fetching items:", err);
+      showToast("Unable to fetch waste marketplace items.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [sortOption]);
+
+  const fetchMyRequests = useCallback(async () => {
+    try {
+      const res = await api.get("/requests/my");
+      setMyRequests(res.data || []);
+    } catch (err) {
+      console.error("Error fetching buyer requests:", err);
+    }
+  }, []);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -23,41 +53,44 @@ function BuyerDashboard() {
       return;
     }
 
-    setUser(JSON.parse(userStr));
+    try {
+      setUser(JSON.parse(userStr));
+    } catch (e) {
+      navigate("/login");
+      return;
+    }
+
     fetchItems();
     fetchMyRequests();
-  }, [navigate]);
-
-  const fetchItems = async () => {
-    try {
-      const res = await api.get("/waste");
-      setItems(res.data || []);
-    } catch (err) {
-      console.error("Error fetching items:", err);
-    }
-  };
-
-  const fetchMyRequests = async () => {
-    try {
-      const res = await api.get("/requests/buyer");
-      setMyRequests(res.data || []);
-    } catch (err) {
-      console.error("Error fetching buyer requests:", err);
-    }
-  };
+  }, [navigate, fetchItems, fetchMyRequests]);
 
   const handleSendRequest = async (itemId) => {
-    setMessage("Sending request...");
     try {
       const res = await api.post("/requests", { waste_item_id: itemId });
-      setMessage(res.data.message || "Request sent successfully!");
-      setTimeout(() => setMessage(""), 3000);
+      showToast(res.data.message || "Pick-up request sent to seller!", "success");
       fetchMyRequests();
       setSelectedItem(null);
     } catch (err) {
       console.error("Error sending request:", err);
-      setMessage(err.response?.data?.message || "Failed to send request.");
-      setTimeout(() => setMessage(""), 3000);
+      showToast(err.response?.data?.message || "Failed to send request.", "error");
+    }
+  };
+
+  const handleCancelRequest = async (requestId) => {
+    if (!window.confirm("Are you sure you want to cancel this pick-up request?")) {
+      return;
+    }
+
+    setCancellingId(requestId);
+    try {
+      const res = await api.delete(`/requests/${requestId}`);
+      showToast(res.data.message || "Request cancelled.", "info");
+      fetchMyRequests();
+    } catch (err) {
+      console.error("Error cancelling request:", err);
+      showToast(err.response?.data?.message || "Failed to cancel request.", "error");
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -69,12 +102,15 @@ function BuyerDashboard() {
     navigate("/login");
   };
 
-  // Filtered items
+  // Filtered and sorted items
   const filteredItems = items.filter((item) => {
+    const term = search.toLowerCase().trim();
     const matchesSearch =
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.category.toLowerCase().includes(search.toLowerCase()) ||
-      item.city.toLowerCase().includes(search.toLowerCase());
+      !term ||
+      item.title.toLowerCase().includes(term) ||
+      item.category.toLowerCase().includes(term) ||
+      item.city.toLowerCase().includes(term) ||
+      (item.sellerName && item.sellerName.toLowerCase().includes(term));
 
     const matchesCategory =
       categoryFilter === "All" || item.category === categoryFilter;
@@ -89,11 +125,12 @@ function BuyerDashboard() {
     return myRequests.find((r) => r.waste_item_id === itemId);
   };
 
-  const activeOrdersCount = myRequests.filter(r => r.status === "PENDING" || r.status === "ACCEPTED").length;
+  const pendingRequestsCount = myRequests.filter(r => r.status === "PENDING").length;
+  const activeOrdersCount = myRequests.filter(r => r.status === "ACCEPTED").length;
   const completedOrdersCount = myRequests.filter(r => r.status === "COMPLETED").length;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg-gradient)" }}>
+    <div className="dashboard-layout">
       {/* NAVBAR */}
       <header className="app-navbar">
         <div className="brand-container">
@@ -103,59 +140,14 @@ function BuyerDashboard() {
           </div>
         </div>
 
-        {/* SEARCH & FILTERS IN NAVBAR */}
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: "0.75rem", top: "0.55rem", fontSize: "0.8125rem", color: "#64748b" }}>🔍</span>
-            <input
-              type="text"
-              placeholder="Search PCB, Copper, Batteries, City..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="auth-input"
-              style={{ paddingLeft: "2.25rem", width: "240px", borderRadius: "9999px" }}
-            />
-          </div>
-
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="auth-input"
-            style={{ width: "auto", borderRadius: "9999px" }}
-          >
-            <option value="All">All Categories</option>
-            <option value="E-waste">⚡ E-waste</option>
-            <option value="Plastic">♻️ Plastic</option>
-            <option value="Metal">🔩 Metal</option>
-            <option value="Paper">📄 Paper</option>
-          </select>
-
-          <select
-            value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
-            className="auth-input"
-            style={{ width: "auto", borderRadius: "9999px" }}
-          >
-            <option value="All">All Cities</option>
-            <option value="Chennai">Chennai</option>
-            <option value="Coimbatore">Coimbatore</option>
-            <option value="Salem">Salem</option>
-            <option value="Trichy">Trichy</option>
-            <option value="Bengaluru">Bengaluru</option>
-            <option value="Hyderabad">Hyderabad</option>
-            <option value="Mumbai">Mumbai</option>
-            <option value="Pune">Pune</option>
-          </select>
-        </div>
-
         <div className="nav-actions">
           {user && (
             <div className="user-chip">
-              <span className="user-avatar" style={{ background: "#dbeafe", color: "#1d4ed8" }}>
+              <span className="user-avatar blue">
                 {user.name ? user.name.charAt(0).toUpperCase() : "C"}
               </span>
-              <span>{user.name}</span>
-              <span style={{ fontSize: "0.7rem", padding: "0.15rem 0.5rem", borderRadius: "9999px", background: "#dbeafe", color: "#1e40af", fontWeight: "700" }}>Collector</span>
+              <span className="user-name-text">{user.name}</span>
+              <span className="role-badge collector">Collector</span>
             </div>
           )}
           <button onClick={handleLogout} className="btn-logout">
@@ -165,7 +157,7 @@ function BuyerDashboard() {
       </header>
 
       {/* MAIN CONTENT */}
-      <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "2rem 1.5rem" }}>
+      <main className="dashboard-main">
         
         {/* STATS OVERVIEW BAR */}
         <div className="stats-grid">
@@ -174,127 +166,194 @@ function BuyerDashboard() {
               <p>Available Listings</p>
               <h2>{items.length.toLocaleString()}</h2>
             </div>
-            <div className="stat-icon" style={{ background: "#ecfdf5", color: "#059669" }}>⚡</div>
+            <div className="stat-icon emerald">⚡</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-info">
-              <p>My Requests Sent</p>
-              <h2 style={{ color: "#2563eb" }}>{myRequests.length}</h2>
+              <p>Requests Sent</p>
+              <h2 className="text-blue">{myRequests.length}</h2>
             </div>
-            <div className="stat-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>📄</div>
+            <div className="stat-icon blue">📄</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-info">
-              <p>Active Orders (Pending/Accepted)</p>
-              <h2 style={{ color: "#d97706" }}>{activeOrdersCount}</h2>
+              <p>Pending Review</p>
+              <h2 className="text-amber">{pendingRequestsCount}</h2>
             </div>
-            <div className="stat-icon" style={{ background: "#fffbeb", color: "#d97706" }}>🚚</div>
+            <div className="stat-icon amber">⏳</div>
           </div>
 
           <div className="stat-card">
             <div className="stat-info">
-              <p>Completed Pick-ups</p>
-              <h2 style={{ color: "#7c3aed" }}>{completedOrdersCount}</h2>
+              <p>Pick-Ups Accepted / In Progress</p>
+              <h2 className="text-emerald">{activeOrdersCount}</h2>
             </div>
-            <div className="stat-icon" style={{ background: "#f3e8ff", color: "#7c3aed" }}>✅</div>
+            <div className="stat-icon emerald">🚚</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-info">
+              <p>Completed Collections</p>
+              <h2 className="text-purple">{completedOrdersCount}</h2>
+            </div>
+            <div className="stat-icon purple">✅</div>
           </div>
         </div>
 
         {/* FEEDBACK TOAST */}
-        {message && (
-          <div style={{
-            padding: "0.85rem 1.25rem",
-            marginBottom: "1.5rem",
-            background: "#ecfdf5",
-            color: "#047857",
-            borderRadius: "1rem",
-            fontSize: "0.875rem",
-            fontWeight: "600",
-            border: "1px solid #a7f3d0",
-            boxShadow: "0 4px 12px rgba(5, 150, 105, 0.1)"
-          }}>
-            ⚡ {message}
+        {message.text && (
+          <div className={`toast-notification ${message.type}`}>
+            <span>{message.type === "success" ? "✅" : message.type === "error" ? "⚠️" : "ℹ️"}</span>
+            <span>{message.text}</span>
           </div>
         )}
 
-        {/* DASHBOARD GRID */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.75rem" }}>
+        {/* SEARCH & FILTERS TOOLBAR */}
+        <div className="filter-toolbar">
+          <div className="search-input-wrapper">
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search E-waste, Metals, Plastics, City, Seller..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-input"
+            />
+            {search && (
+              <button 
+                type="button" 
+                onClick={() => setSearch("")} 
+                className="search-clear-btn"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="filters-group">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="filter-select"
+            >
+              <option value="All">All Categories</option>
+              <option value="E-waste">⚡ E-waste</option>
+              <option value="Metal">🔩 Metal</option>
+              <option value="Plastic">♻️ Plastic</option>
+              <option value="Paper">📄 Paper</option>
+            </select>
+
+            <select
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+              className="filter-select"
+            >
+              <option value="All">All Cities</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Coimbatore">Coimbatore</option>
+              <option value="Salem">Salem</option>
+              <option value="Trichy">Trichy</option>
+              <option value="Erode">Erode</option>
+              <option value="Madurai">Madurai</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Hyderabad">Hyderabad</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Pune">Pune</option>
+            </select>
+
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value)}
+              className="filter-select sort"
+            >
+              <option value="newest">🕒 Sort: Newest First</option>
+              <option value="price_asc">💵 Price: Low to High</option>
+              <option value="price_desc">💎 Price: High to Low</option>
+              <option value="weight_desc">⚖️ Weight: Heaviest First</option>
+            </select>
+          </div>
+        </div>
+
+        {/* DASHBOARD SPLIT GRID */}
+        <div className="buyer-grid">
           
           {/* LEFT: WASTE MARKETPLACE ITEMS GRID */}
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: "800", color: "#0f172a" }}>
-                Waste & Scrap Material Marketplace
+          <div className="buyer-items-section">
+            <div className="section-header-row">
+              <h2 className="section-title">
+                Waste & Scrap Marketplace Listings
               </h2>
-              <span style={{ fontSize: "0.8125rem", color: "#64748b" }}>
-                Showing <strong>{Math.min(50, filteredItems.length)}</strong> of {filteredItems.length.toLocaleString()} matches
+              <span className="results-counter">
+                Showing <strong>{Math.min(60, filteredItems.length)}</strong> of {filteredItems.length.toLocaleString()} items
               </span>
             </div>
 
-            {filteredItems.length === 0 ? (
-              <div style={{ background: "#ffffff", padding: "3rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", textAlign: "center", color: "#64748b" }}>
-                No scrap items match your current search and filter criteria.
+            {loading ? (
+              <div className="empty-state-box loading">
+                <span className="loading-spinner"></span>
+                <p>Loading scrap materials...</p>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="empty-state-box">
+                <span className="empty-icon">🔍</span>
+                <p className="empty-title">No scrap items match your search</p>
+                <p className="empty-subtitle">Try adjusting your filters or search keywords.</p>
               </div>
             ) : (
               <div className="items-grid">
-                {filteredItems.slice(0, 50).map((item) => {
+                {filteredItems.slice(0, 60).map((item) => {
                   const req = getRequestForWasteItem(item.id);
                   return (
                     <div key={item.id} className="waste-card">
-                      <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                          <h4 style={{ margin: 0, fontSize: "0.875rem", fontWeight: "800", color: "#0f172a", lineHeight: "1.3" }}>
-                            {item.title}
-                          </h4>
-                          <span className="category-chip">{item.category}</span>
+                      <div className="waste-card-top">
+                        <div className="waste-card-header">
+                          <h4 className="waste-card-title">{item.title}</h4>
+                          <span className={`category-chip ${item.category.toLowerCase().replace(/[^a-z0-9]/g, '')}`}>
+                            {item.category}
+                          </span>
                         </div>
 
-                        <p style={{ margin: "0.3rem 0", fontSize: "0.8125rem", color: "#64748b" }}>
-                          ⚡ <strong>{item.approx_weight} kg</strong> • Base Price: <strong className="price-tag">₹{item.base_price.toLocaleString()}</strong>
-                        </p>
+                        <div className="waste-card-specs">
+                          <div className="spec-item">
+                            <span className="spec-label">Weight</span>
+                            <strong className="spec-val">{item.approx_weight} kg</strong>
+                          </div>
+                          <div className="spec-item">
+                            <span className="spec-label">Base Price</span>
+                            <strong className="spec-val price">₹{Number(item.base_price).toLocaleString()}</strong>
+                          </div>
+                        </div>
 
-                        <p style={{ margin: "0.3rem 0", fontSize: "0.75rem", color: "#64748b" }}>
+                        <p className="waste-card-location">
                           📍 {item.city} ({item.address})
                         </p>
 
-                        <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.7rem", color: "#94a3b8" }}>
-                          Seller: {item.sellerName}
+                        <p className="waste-card-seller">
+                          Seller: <strong>{item.sellerName}</strong>
                         </p>
                       </div>
 
-                      <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid #f1f5f9", display: "flex", gap: "0.5rem" }}>
+                      <div className="waste-card-actions">
                         <button
                           onClick={() => setSelectedItem(item)}
                           className="btn-card-action btn-card-outline"
-                          style={{ flex: 1 }}
                         >
                           👁️ Details
                         </button>
 
                         {req ? (
-                          <span style={{
-                            padding: "0.5rem 0.75rem",
-                            borderRadius: "0.75rem",
-                            fontSize: "0.75rem",
-                            fontWeight: "700",
-                            background: req.status === "PENDING" ? "#fef3c7" : req.status === "ACCEPTED" ? "#dcfce7" : "#e0f2fe",
-                            color: req.status === "PENDING" ? "#92400e" : req.status === "ACCEPTED" ? "#166534" : "#075985",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flex: 1
-                          }}>
-                            {req.status}
+                          <span className={`status-pill ${req.status.toLowerCase()}`}>
+                            {req.status === "PENDING" ? "⏳ Requested" : req.status === "ACCEPTED" ? "🚚 Accepted" : "🏁 Completed"}
                           </span>
                         ) : (
                           <button
                             onClick={() => handleSendRequest(item.id)}
                             className="btn-card-action btn-card-primary"
-                            style={{ flex: 1 }}
                           >
-                            🚀 Request Pick-Up
+                            🚀 Request
                           </button>
                         )}
                       </div>
@@ -306,39 +365,55 @@ function BuyerDashboard() {
           </div>
 
           {/* RIGHT: MY SENT REQUESTS TRACKER PANEL */}
-          <div style={{ background: "#ffffff", padding: "1.5rem", borderRadius: "1.25rem", border: "1px solid var(--border-color)", boxShadow: "var(--card-shadow)", height: "fit-content" }}>
-            <div style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: "800", color: "#0f172a" }}>📌 My Sent Requests</h3>
-              <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.75rem", color: "#64748b" }}>Track status of your collection orders</p>
-            </div>
-
-            {myRequests.length === 0 ? (
-              <p style={{ fontSize: "0.8125rem", color: "#94a3b8", textAlign: "center", padding: "1.5rem 0" }}>No requests sent yet.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem", maxHeight: "550px", overflowY: "auto", paddingRight: "0.3rem" }}>
-                {myRequests.map((req) => (
-                  <div key={req.id} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "0.875rem", padding: "0.85rem" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.3rem" }}>
-                      <strong style={{ fontSize: "0.8125rem", color: "#0f172a" }}>{req.title}</strong>
-                      <span style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: "700",
-                        padding: "0.15rem 0.5rem",
-                        borderRadius: "9999px",
-                        background: req.status === "PENDING" ? "#fef3c7" : req.status === "ACCEPTED" ? "#dcfce7" : req.status === "COMPLETED" ? "#e0f2fe" : "#fee2e2",
-                        color: req.status === "PENDING" ? "#92400e" : req.status === "ACCEPTED" ? "#166534" : req.status === "COMPLETED" ? "#075985" : "#991b1b",
-                      }}>
-                        {req.status}
-                      </span>
-                    </div>
-
-                    <p style={{ margin: 0, fontSize: "0.75rem", color: "#64748b" }}>
-                      📍 {req.city} • {req.approx_weight} kg • ₹{req.base_price}
-                    </p>
-                  </div>
-                ))}
+          <div className="buyer-sidebar">
+            <div className="panel-card sidebar-card">
+              <div className="panel-header space-between">
+                <div>
+                  <h3 className="panel-title">📌 My Sent Requests</h3>
+                  <p className="panel-subtitle">Real-time status of your pick-up requests</p>
+                </div>
+                <span className="badge-counter blue">
+                  {myRequests.length} Total
+                </span>
               </div>
-            )}
+
+              {myRequests.length === 0 ? (
+                <div className="empty-state-box">
+                  <span className="empty-icon">📭</span>
+                  <p className="empty-title">No pick-up requests sent</p>
+                  <p className="empty-subtitle">Click "Request" on any listing to initiate a pick-up request.</p>
+                </div>
+              ) : (
+                <div className="scrollable-list requests-tracker">
+                  {myRequests.map((req) => (
+                    <div key={req.id} className="request-tracker-card">
+                      <div className="request-tracker-top">
+                        <strong className="request-tracker-title">{req.title}</strong>
+                        <span className={`status-badge ${req.status.toLowerCase()}`}>
+                          {req.status}
+                        </span>
+                      </div>
+
+                      <p className="request-tracker-meta">
+                        📍 {req.city} • {req.approx_weight} kg • ₹{Number(req.base_price).toLocaleString()}
+                      </p>
+
+                      {req.status === "PENDING" && (
+                        <div className="request-tracker-actions">
+                          <button
+                            onClick={() => handleCancelRequest(req.id)}
+                            disabled={cancellingId === req.id}
+                            className="btn-cancel-request"
+                          >
+                            {cancellingId === req.id ? "Cancelling..." : "✕ Cancel Request"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
@@ -349,39 +424,42 @@ function BuyerDashboard() {
       {selectedItem && (
         <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
+            <div className="modal-header">
               <div>
-                <span className="category-chip" style={{ marginBottom: "0.4rem" }}>{selectedItem.category}</span>
-                <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "800", color: "#0f172a" }}>{selectedItem.title}</h3>
+                <span className="category-chip" style={{ marginBottom: "0.5rem" }}>
+                  {selectedItem.category}
+                </span>
+                <h3 className="modal-title">{selectedItem.title}</h3>
               </div>
               <button
                 onClick={() => setSelectedItem(null)}
-                style={{ background: "none", border: "none", fontSize: "1.25rem", cursor: "pointer", color: "#64748b" }}
+                className="modal-close-btn"
+                title="Close modal"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "1rem", padding: "1rem", marginBottom: "1.25rem", display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.875rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Approx Weight:</span>
-                <strong style={{ color: "#0f172a" }}>{selectedItem.approx_weight} kg</strong>
+            <div className="modal-details-grid">
+              <div className="modal-detail-row">
+                <span className="modal-detail-label">Approx Weight:</span>
+                <strong className="modal-detail-value">{selectedItem.approx_weight} kg</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Base Price:</span>
-                <strong style={{ color: "#059669" }}>₹{selectedItem.base_price.toLocaleString()}</strong>
+              <div className="modal-detail-row">
+                <span className="modal-detail-label">Base Price:</span>
+                <strong className="modal-detail-value text-emerald">₹{Number(selectedItem.base_price).toLocaleString()}</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Location / Address:</span>
-                <strong style={{ color: "#0f172a", textAlign: "right" }}>{selectedItem.address}, {selectedItem.city} ({selectedItem.pincode})</strong>
+              <div className="modal-detail-row">
+                <span className="modal-detail-label">Location / Address:</span>
+                <strong className="modal-detail-value">{selectedItem.address}, {selectedItem.city} ({selectedItem.pincode})</strong>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "0.5rem", borderTop: "1px dashed #cbd5e1" }}>
-                <span style={{ color: "#64748b" }}>Listed By Seller:</span>
-                <strong style={{ color: "#0f172a" }}>{selectedItem.sellerName} ({selectedItem.sellerEmail})</strong>
+              <div className="modal-detail-row divider">
+                <span className="modal-detail-label">Seller Contact:</span>
+                <strong className="modal-detail-value">{selectedItem.sellerName} ({selectedItem.sellerEmail})</strong>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "0.75rem" }}>
+            <div className="modal-actions-row">
               <button
                 onClick={() => setSelectedItem(null)}
                 className="btn-card-action btn-card-outline"
@@ -397,7 +475,7 @@ function BuyerDashboard() {
                   🚀 Confirm Pick-Up Request
                 </button>
               ) : (
-                <button disabled className="btn-card-action btn-card-outline">
+                <button disabled className="btn-card-action btn-card-outline disabled">
                   Already Requested ({getRequestForWasteItem(selectedItem.id).status})
                 </button>
               )}

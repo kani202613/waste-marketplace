@@ -12,7 +12,10 @@ router.get("/my", authMiddleware, requestController.getMyRequestsAsBuyer);
 // Seller sees requests for their items
 router.get("/seller", authMiddleware, requestController.getMyRequestsAsSeller);
 
-// Update request status
+// Update request status (Accept / Reject / Complete)
 router.put("/:id", authMiddleware, requestController.updateRequestStatus);
+
+// Buyer cancels a pending request
+router.delete("/:id", authMiddleware, requestController.cancelRequest);
 
 module.exports = router;

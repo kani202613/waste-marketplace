@@ -11,6 +11,11 @@ const RequestModel = {
     return { id: result.lastID, buyer_id, waste_item_id, status: 'PENDING' };
   },
 
+  findById: async (id) => {
+    const db = await dbPromise;
+    return await db.get(`SELECT * FROM requests WHERE id = ? LIMIT 1`, [id]);
+  },
+
   findByBuyerAndItem: async (buyer_id, waste_item_id) => {
     const db = await dbPromise;
     return await db.get(
@@ -67,6 +72,14 @@ const RequestModel = {
     return await db.run(
       `UPDATE requests SET status = 'REJECTED' WHERE waste_item_id = ? AND id != ? AND status = 'PENDING'`,
       [waste_item_id, acceptedRequestId]
+    );
+  },
+
+  deleteById: async (id, buyer_id) => {
+    const db = await dbPromise;
+    return await db.run(
+      `DELETE FROM requests WHERE id = ? AND buyer_id = ?`,
+      [id, buyer_id]
     );
   }
 };

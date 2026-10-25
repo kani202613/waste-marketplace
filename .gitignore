@@ -21,3 +21,6 @@ frontend/build/
 *.sqlite
 *.db
 backend/database.sqlite
+
+# Temp
+.tmp/

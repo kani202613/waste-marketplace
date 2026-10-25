@@ -1,6 +1,5 @@
 // backend/middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
-const User = require("../models/User");
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization; // "Bearer token"
@@ -12,13 +11,14 @@ const authMiddleware = async (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // token should contain id + role when you create it
-    req.user = { id: decoded.id, role: decoded.role };
+    const secret = process.env.JWT_SECRET || "supersecretkey123";
+    const decoded = jwt.verify(token, secret);
+    // Token contains id, email, role
+    req.user = { id: decoded.id, email: decoded.email, role: decoded.role };
     next();
   } catch (err) {
-    console.error(err);
-    return res.status(401).json({ message: "Invalid token" });
+    console.error("Auth middleware error:", err.message);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 

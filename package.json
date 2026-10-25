@@ -10,7 +10,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "npm install --prefix frontend && npm run build --prefix frontend",
     "postinstall": "npm install --prefix frontend && npm run build --prefix frontend",
-    "seed": "node backend/seed.js"
+    "seed": "node backend/seed.js",
+    "test": "node --test backend/tests/api.test.js"
   },
   "keywords": [],
   "author": "",

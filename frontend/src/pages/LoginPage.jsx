@@ -7,16 +7,26 @@ function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+
+    if (!email || !password) {
+      setMessage("Please fill in both email and password.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await api.post("/auth/login", { email, password });
+      const res = await api.post("/auth/login", { 
+        email: email.trim().toLowerCase(), 
+        password 
+      });
       const { token, user } = res.data;
 
       localStorage.setItem("token", token);
@@ -30,20 +40,21 @@ function LoginPage() {
         navigate("/buyer");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Login error:", err);
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Login failed. Please check your credentials.");
+        setMessage("Unable to connect to the server. Please check your network.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickLogin = (demoEmail, demoRole) => {
+  const handleQuickLogin = (demoEmail) => {
     setEmail(demoEmail);
     setPassword("Password@123");
+    setMessage("");
   };
 
   return (
@@ -52,25 +63,17 @@ function LoginPage() {
         <div className="auth-header">
           <div className="auth-logo">♻️</div>
           <h1 className="auth-title">Welcome Back</h1>
-          <p className="auth-subtitle">Sign in to manage waste trading & pick-ups</p>
+          <p className="auth-subtitle">Sign in to manage waste trading & sustainable recycling</p>
         </div>
 
         {message && (
-          <div style={{
-            padding: "0.75rem 1rem",
-            marginBottom: "1.25rem",
-            background: "#fef2f2",
-            color: "#991b1b",
-            borderRadius: "0.75rem",
-            fontSize: "0.8125rem",
-            fontWeight: "600",
-            border: "1px solid #fecaca"
-          }}>
-            ⚠️ {message}
+          <div className="auth-alert error">
+            <span>⚠️</span>
+            <span>{message}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="auth-form-group">
             <label className="auth-label">Email Address</label>
             <input
@@ -79,20 +82,33 @@ function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@company.com"
               required
+              autoComplete="email"
               className="auth-input"
             />
           </div>
 
           <div className="auth-form-group">
             <label className="auth-label">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              className="auth-input"
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+                className="auth-input"
+                style={{ paddingRight: "2.75rem" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="password-toggle-btn"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           <button
@@ -104,54 +120,30 @@ function LoginPage() {
           </button>
         </form>
 
-        <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.875rem", color: "#64748b" }}>
+        <p className="auth-footer-text">
           Don't have an account?{" "}
-          <Link to="/register" style={{ color: "#059669", fontWeight: "700", textDecoration: "none" }}>
+          <Link to="/register" className="auth-link">
             Create an Account
           </Link>
         </p>
 
         {/* DEMO ACCOUNTS QUICK FILL */}
-        <div style={{
-          marginTop: "1.5rem",
-          paddingTop: "1.25rem",
-          borderTop: "1px dashed #e2e8f0",
-          fontSize: "0.75rem",
-          color: "#64748b"
-        }}>
-          <p style={{ fontWeight: "700", marginBottom: "0.6rem", color: "#334155" }}>🔑 Quick Fill Demo Accounts:</p>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div className="demo-accounts-box">
+          <p className="demo-accounts-title">🔑 Quick Demo Logins:</p>
+          <div className="demo-accounts-grid">
             <button
               type="button"
-              onClick={() => handleQuickLogin("john@seller.com", "seller")}
-              style={{
-                flex: 1,
-                padding: "0.5rem",
-                borderRadius: "0.5rem",
-                border: "1px solid #cbd5e1",
-                background: "#f8fafc",
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                cursor: "pointer"
-              }}
+              onClick={() => handleQuickLogin("john@seller.com")}
+              className="demo-btn"
             >
-              📦 Seller Account
+              📦 John (Seller)
             </button>
             <button
               type="button"
-              onClick={() => handleQuickLogin("alex@collector.com", "collector")}
-              style={{
-                flex: 1,
-                padding: "0.5rem",
-                borderRadius: "0.5rem",
-                border: "1px solid #cbd5e1",
-                background: "#f8fafc",
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                cursor: "pointer"
-              }}
+              onClick={() => handleQuickLogin("alex@collector.com")}
+              className="demo-btn"
             >
-              🚚 Collector Account
+              🚚 Alex (Collector)
             </button>
           </div>
         </div>

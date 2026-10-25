@@ -20,22 +20,43 @@ exports.createWasteItem = async (req, res) => {
     } = req.body;
 
     if (!title || !category || !address || !city || !pincode) {
-      return res.status(400).json({ message: "Missing required fields" });
+      return res.status(400).json({ message: "All fields are required (title, category, weight, basePrice, address, city, pincode)." });
+    }
+
+    const trimmedTitle = String(title).trim();
+    const trimmedCategory = String(category).trim();
+    const trimmedAddress = String(address).trim();
+    const trimmedCity = String(city).trim();
+    const trimmedPincode = String(pincode).trim();
+
+    if (!trimmedTitle || !trimmedCategory || !trimmedAddress || !trimmedCity || !trimmedPincode) {
+      return res.status(400).json({ message: "Field values cannot be blank." });
+    }
+
+    const numWeight = Number(weight);
+    const numPrice = Number(basePrice);
+
+    if (isNaN(numWeight) || numWeight <= 0) {
+      return res.status(400).json({ message: "Approximate weight must be a positive number." });
+    }
+
+    if (isNaN(numPrice) || numPrice < 0) {
+      return res.status(400).json({ message: "Base price must be zero or a positive number." });
     }
 
     const created = await WasteItem.create({
       seller_id: sellerId,
-      title,
-      category,
-      approx_weight: Number(weight) || 0,
-      base_price: Number(basePrice) || 0,
-      address,
-      city,
-      pincode
+      title: trimmedTitle,
+      category: trimmedCategory,
+      approx_weight: numWeight,
+      base_price: numPrice,
+      address: trimmedAddress,
+      city: trimmedCity,
+      pincode: trimmedPincode
     });
 
     return res.status(201).json({
-      message: "Waste item created",
+      message: "Waste item listed successfully",
       itemId: created.id,
     });
   } catch (error) {
@@ -44,16 +65,17 @@ exports.createWasteItem = async (req, res) => {
   }
 };
 
-// 2️⃣ BUYER: Get ALL open items with seller info (Supports filtering & limit for 1000+ items)
+// 2️⃣ BUYER: Get ALL open items with seller info (Supports category, city, search, sort & limit)
 exports.getAllWasteItems = async (req, res) => {
   try {
-    const { category, city, search, limit } = req.query;
+    const { category, city, search, sort, limit } = req.query;
     const queryLimit = parseInt(limit) || 1000;
 
     const items = await WasteItem.findAllOpen({
       category,
       city,
       search,
+      sort,
       limit: queryLimit
     });
 
@@ -105,5 +127,35 @@ exports.getMyWasteItems = async (req, res) => {
   } catch (error) {
     console.error("Get my items error:", error);
     return res.status(500).json({ message: "Failed to load your items", error: error.message });
+  }
+};
+
+// 4️⃣ SELLER: Delete my waste listing
+exports.deleteWasteItem = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
+    }
+    const itemId = req.params.id;
+    const sellerId = req.user.id;
+
+    const item = await WasteItem.findById(itemId);
+    if (!item) {
+      return res.status(404).json({ message: "Waste item not found." });
+    }
+
+    if (item.seller_id !== sellerId) {
+      return res.status(403).json({ message: "Forbidden. You can only delete your own listings." });
+    }
+
+    if (item.status === 'ACCEPTED') {
+      return res.status(400).json({ message: "Cannot delete an item with an accepted collection request in progress." });
+    }
+
+    await WasteItem.deleteById(itemId, sellerId);
+    return res.json({ message: "Listing deleted successfully." });
+  } catch (error) {
+    console.error("Delete waste item error:", error);
+    return res.status(500).json({ message: "Failed to delete item", error: error.message });
   }
 };

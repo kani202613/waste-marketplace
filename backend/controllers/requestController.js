@@ -117,7 +117,7 @@ exports.updateRequestStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!status || !["ACCEPTED", "REJECTED", "COMPLETED"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status value." });
+      return res.status(400).json({ message: "Invalid status value. Must be ACCEPTED, REJECTED, or COMPLETED." });
     }
 
     const requestDetails = await RequestModel.findByIdDetails(requestId);
@@ -134,7 +134,7 @@ exports.updateRequestStatus = async (req, res) => {
       await WasteItem.updateStatus(requestDetails.waste_item_id, "ACCEPTED");
       await RequestModel.rejectOthersForSameItem(requestDetails.waste_item_id, requestId);
 
-      return res.json({ message: "Request accepted, others declined." });
+      return res.json({ message: "Request accepted, other pending requests declined." });
 
     } else if (status === "COMPLETED") {
       await RequestModel.updateStatus(requestId, "COMPLETED");
@@ -150,5 +150,36 @@ exports.updateRequestStatus = async (req, res) => {
   } catch (error) {
     console.error("Update request status error:", error);
     return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+// 5. Buyer cancels their pending request
+exports.cancelRequest = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Unauthorized. Please log in." });
+    }
+
+    const requestId = req.params.id;
+    const buyerId = req.user.id;
+
+    const request = await RequestModel.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found." });
+    }
+
+    if (request.buyer_id !== buyerId) {
+      return res.status(403).json({ message: "Forbidden. You can only cancel your own requests." });
+    }
+
+    if (request.status !== "PENDING") {
+      return res.status(400).json({ message: `Cannot cancel a request that is already ${request.status.toLowerCase()}.` });
+    }
+
+    await RequestModel.deleteById(requestId, buyerId);
+    return res.json({ message: "Request cancelled successfully." });
+  } catch (error) {
+    console.error("Cancel request error:", error);
+    return res.status(500).json({ message: "Failed to cancel request", error: error.message });
   }
 };

@@ -16,25 +16,47 @@ exports.register = async (req, res) => {
     const { name, email, password, role, phone, address, city, pincode } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email, and password are required' });
+      return res.status(400).json({ message: 'Name, email, and password are required.' });
     }
 
-    const existingUser = await User.findByEmail(email);
+    const trimmedName = String(name).trim();
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedPassword = String(password);
+
+    if (!trimmedName) {
+      return res.status(400).json({ message: 'Name cannot be blank.' });
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    // Password length validation
+    if (trimmedPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    }
+
+    const validRoles = ['seller', 'collector', 'buyer'];
+    const assignedRole = validRoles.includes(role) ? role : 'seller';
+
+    const existingUser = await User.findByEmail(trimmedEmail);
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
+      return res.status(400).json({ message: 'Email is already registered. Please log in.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(trimmedPassword, 10);
 
     const createdUser = await User.create({
-      name,
-      email,
+      name: trimmedName,
+      email: trimmedEmail,
       password: passwordHash,
-      role: role || 'seller',
-      phone: phone || null,
-      address: address || null,
-      city: city || null,
-      pincode: pincode || null
+      role: assignedRole,
+      phone: phone ? String(phone).trim() : null,
+      address: address ? String(address).trim() : null,
+      city: city ? String(city).trim() : null,
+      pincode: pincode ? String(pincode).trim() : null
     });
 
     const token = generateToken(createdUser);
@@ -60,17 +82,20 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res.status(400).json({ message: 'Email and password are required.' });
     }
 
-    const user = await User.findByEmail(email);
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedPassword = String(password);
+
+    const user = await User.findByEmail(trimmedEmail);
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: 'Invalid email or password.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(trimmedPassword, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      return res.status(400).json({ message: 'Invalid email or password.' });
     }
 
     const token = generateToken(user);

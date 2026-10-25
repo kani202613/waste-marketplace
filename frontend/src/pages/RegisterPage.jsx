@@ -17,7 +17,8 @@ function RegisterPage() {
     pincode: "",
   });
 
-  const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState({ text: "", type: "" });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -33,19 +34,41 @@ function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage("");
+    setMessage({ text: "", type: "" });
+
+    // Client-side validations
+    if (!form.name.trim() || !form.email.trim() || !form.password) {
+      setMessage({ text: "Please enter your name, email, and password.", type: "error" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email.trim())) {
+      setMessage({ text: "Please provide a valid email address.", type: "error" });
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setMessage({ text: "Password must be at least 6 characters long.", type: "error" });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await api.post("/auth/register", form);
-      setMessage(res.data.message || "Account created successfully!");
-      setTimeout(() => navigate("/login"), 1000);
+      const res = await api.post("/auth/register", {
+        ...form,
+        email: form.email.trim().toLowerCase(),
+        name: form.name.trim()
+      });
+      setMessage({ text: res.data.message || "Account created successfully! Redirecting to login...", type: "success" });
+      setTimeout(() => navigate("/login"), 1200);
     } catch (err) {
-      console.error(err);
+      console.error("Register error:", err);
       if (err.response?.data?.message) {
-        setMessage(err.response.data.message);
+        setMessage({ text: err.response.data.message, type: "error" });
       } else {
-        setMessage("Registration failed. Please check your details.");
+        setMessage({ text: "Registration failed. Please check your network connection.", type: "error" });
       }
     } finally {
       setLoading(false);
@@ -61,18 +84,10 @@ function RegisterPage() {
           <p className="auth-subtitle">Join WasteSmart as a Seller or Recycling Collector</p>
         </div>
 
-        {message && (
-          <div style={{
-            padding: "0.75rem 1rem",
-            marginBottom: "1.25rem",
-            background: message.includes("success") || message.includes("created") ? "#ecfdf5" : "#fef2f2",
-            color: message.includes("success") || message.includes("created") ? "#047857" : "#991b1b",
-            borderRadius: "0.75rem",
-            fontSize: "0.8125rem",
-            fontWeight: "600",
-            border: "1px solid #a7f3d0"
-          }}>
-            {message.includes("success") || message.includes("created") ? "✅ " : "⚠️ "}{message}
+        {message.text && (
+          <div className={`auth-alert ${message.type}`}>
+            <span>{message.type === "success" ? "✅" : "⚠️"}</span>
+            <span>{message.text}</span>
           </div>
         )}
 
@@ -94,9 +109,9 @@ function RegisterPage() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="auth-form-group">
-            <label className="auth-label">Full Name / Company Name</label>
+            <label className="auth-label">Full Name / Business Name *</label>
             <input
               name="name"
               value={form.name}
@@ -108,7 +123,7 @@ function RegisterPage() {
           </div>
 
           <div className="auth-form-group">
-            <label className="auth-label">Email Address</label>
+            <label className="auth-label">Email Address *</label>
             <input
               type="email"
               name="email"
@@ -116,21 +131,34 @@ function RegisterPage() {
               onChange={handleChange}
               placeholder="name@company.com"
               required
+              autoComplete="email"
               className="auth-input"
             />
           </div>
 
           <div className="auth-form-group">
-            <label className="auth-label">Password</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              className="auth-input"
-            />
+            <label className="auth-label">Password * (Min 6 characters)</label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                required
+                autoComplete="new-password"
+                className="auth-input"
+                style={{ paddingRight: "2.75rem" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="password-toggle-btn"
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
@@ -190,9 +218,9 @@ function RegisterPage() {
           </button>
         </form>
 
-        <p style={{ marginTop: "1.5rem", textAlign: "center", fontSize: "0.875rem", color: "#64748b" }}>
+        <p className="auth-footer-text">
           Already have an account?{" "}
-          <Link to="/login" style={{ color: "#059669", fontWeight: "700", textDecoration: "none" }}>
+          <Link to="/login" className="auth-link">
             Sign In
           </Link>
         </p>

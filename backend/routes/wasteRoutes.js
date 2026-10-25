@@ -13,4 +13,7 @@ router.get("/", authMiddleware, wasteController.getAllWasteItems);
 // GET /api/waste/my
 router.get("/my", authMiddleware, wasteController.getMyWasteItems);
 
+// DELETE /api/waste/:id
+router.delete("/:id", authMiddleware, wasteController.deleteWasteItem);
+
 module.exports = router;
